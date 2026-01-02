@@ -1,5 +1,45 @@
 #!/usr/bin/env node
 
+// src/domain/entities/Message.ts
+var EMessenger = /* @__PURE__ */ ((EMessenger2) => {
+  EMessenger2["USER"] = "user";
+  EMessenger2["SYSTEM"] = "system";
+  return EMessenger2;
+})(EMessenger || {});
+var Message = class {
+  messenger;
+  content;
+  constructor({ messenger, content }) {
+    this.messenger = messenger;
+    this.content = content;
+  }
+};
+
+// src/gateway/ClaudeCodeGateway.ts
+import { query } from "@anthropic-ai/claude-agent-sdk";
+var ClaudeCodeGateway = class {
+  static async *streamMessage(path2, content, sessionId) {
+    console.log("session id");
+    console.log(sessionId);
+    for await (const message of query({
+      prompt: content,
+      options: {
+        cwd: path2,
+        resume: sessionId
+      }
+    })) {
+      if (message.type === "assistant" && message.message?.content) {
+        for (const block of message.message.content) {
+          if ("text" in block) yield { type: "assistant_text", text: block.text, sessionId: message.session_id };
+          else if ("name" in block) yield { type: "tool_call", name: block.name };
+        }
+      } else if (message.type === "result") {
+        yield { type: "done", subtype: message.subtype };
+      }
+    }
+  }
+};
+
 // src/repository/orchestratorRepository.ts
 import { promises as fs2 } from "fs";
 
@@ -15,21 +55,6 @@ function normalizeCwd(p) {
   }
   return abs;
 }
-
-// src/domain/entities/Message.ts
-var EMessenger = /* @__PURE__ */ ((EMessenger2) => {
-  EMessenger2["USER"] = "user";
-  EMessenger2["SYSTEM"] = "system";
-  return EMessenger2;
-})(EMessenger || {});
-var Message = class {
-  messenger;
-  content;
-  constructor({ messenger, content }) {
-    this.messenger = messenger;
-    this.content = content;
-  }
-};
 
 // src/domain/entities/Project.ts
 var Project = class {
@@ -65,12 +90,14 @@ var Session = class {
   status;
   worktree;
   project;
+  claudeCodeSessionId;
   messages;
-  constructor(status = "idle" /* IDLE */, worktree, project, messages = []) {
+  constructor(status = "idle" /* IDLE */, worktree, project, claudeCodeSessionId, messages2 = []) {
     this.status = status;
     this.worktree = worktree;
     this.project = project;
-    this.messages = messages;
+    this.claudeCodeSessionId = claudeCodeSessionId;
+    this.messages = messages2;
   }
   sendMessage(message) {
     this.messages.push(message);
@@ -113,12 +140,10 @@ var Orchestrator = class {
     this.sessionManager.addSession(session);
   }
   listSessions() {
-    console.log(this);
-    console.log(this.sessionManager);
     return this.sessionManager.listSessions();
   }
-  sendMessage(session, messageContent) {
-    const message = new Message({ messenger: "user" /* USER */, content: messageContent });
+  sendMessage(messenger = "user" /* USER */, session, messageContent) {
+    const message = new Message({ messenger, content: messageContent });
     session.sendMessage(message);
   }
   listMessages(session) {
@@ -152,8 +177,8 @@ var OrchestratorFactory = class {
     const sessions2 = sessionsJson.map((json) => {
       const status = this.parseSessionStatus(json["status"]);
       const project = new Project(json["project"]["path"], json["project"]["name"]);
-      const messages = this.parseMessages(json["messages"]);
-      return new Session(status, json["worktree"], project, messages);
+      const messages2 = this.parseMessages(json["messages"]);
+      return new Session(status, json["worktree"], project, json["claudeCodeSessionId"], messages2);
     });
     return new SessionManager(sessions2);
   }
@@ -164,11 +189,11 @@ var OrchestratorFactory = class {
     throw new Error("invalid session status");
   }
   parseMessages(messagesJson) {
-    const messages = messagesJson.map((json) => {
+    const messages2 = messagesJson.map((json) => {
       const messenger = this.parseMessenger(json["messenger"]);
       return new Message({ messenger, content: json["content"] });
     });
-    return messages;
+    return messages2;
   }
   parseMessenger(input) {
     if (Object.values(EMessenger).includes(input)) {
@@ -204,28 +229,36 @@ var OrchestratorRepository = class {
   }
 };
 
-// src/usecase/createProjectUseCase.ts
-var CreateProjectUseCase = class {
-  static async createProject(name, path2) {
-    const normalizedPath = normalizeCwd(path2);
+// src/usecase/createFollowupMessageUseCase.ts
+var createFollowupMessageUseCase = class {
+  static async sendMessage(userMessage, sessionId) {
     const orchestrator = await OrchestratorRepository.find();
-    orchestrator.newProject(normalizedPath, name);
+    const session = orchestrator.listSessions().find((session2) => {
+      return session2.claudeCodeSessionId === sessionId;
+    });
+    if (session === void 0) throw new Error("invalid session");
+    orchestrator.sendMessage("user" /* USER */, session, userMessage);
+    for await (const event of ClaudeCodeGateway.streamMessage(session.project.path, userMessage, sessionId)) {
+      if (event.type === "assistant_text") {
+        orchestrator.sendMessage("system" /* SYSTEM */, session, event.text);
+      }
+    }
     await OrchestratorRepository.save(orchestrator);
   }
 };
 
-// src/usecase/createSessionUseCase.ts
-var CreateSessionUseCase = class {
-  static async createSession(worktree, projectName) {
+// src/usecase/listMessagesUseCase.ts
+var ListMessagesUseCase = class {
+  static async listMesseges(sessionId) {
     const orchestrator = await OrchestratorRepository.find();
-    const project = orchestrator.listProjects().find((project2) => {
-      return project2.name === projectName;
+    console.log("debug");
+    console.log(orchestrator.listSessions());
+    console.log(sessionId);
+    const session = orchestrator.listSessions().find((session2) => {
+      return session2.claudeCodeSessionId === sessionId;
     });
-    if (project === void 0) {
-      throw new Error("project does not exist");
-    }
-    orchestrator.newSession(worktree, project);
-    await OrchestratorRepository.save(orchestrator);
+    if (session === void 0) throw new Error("invalid session");
+    return orchestrator.listMessages(session);
   }
 };
 
@@ -238,14 +271,25 @@ var ListProjectsUseCase = class {
   }
 };
 
+// src/usecase/listSessionsUseCase.ts
+var ListSessionsUseCase = class {
+  static async ListSessions() {
+    const orchestrator = await OrchestratorRepository.find();
+    const sessions2 = orchestrator.listSessions();
+    return sessions2;
+  }
+};
+
 // src/index.ts
-await CreateProjectUseCase.createProject("test", "~/Projects/jbeat-games/");
 var projects = await ListProjectsUseCase.listProjects();
 console.log("projects");
 console.log(projects);
-await CreateSessionUseCase.createSession("refactor", "test");
-var sessions = await ListProjectsUseCase.listProjects();
+var sessions = await ListSessionsUseCase.ListSessions();
 console.log("sessions");
 console.log(sessions);
+await createFollowupMessageUseCase.sendMessage("double the previous value you returned", sessions[0].claudeCodeSessionId);
+var messages = await ListMessagesUseCase.listMesseges(sessions[0].claudeCodeSessionId);
+console.log("messages");
+console.log(messages);
 console.log("lazystarforge");
 //# sourceMappingURL=index.js.map

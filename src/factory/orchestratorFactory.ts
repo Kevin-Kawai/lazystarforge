@@ -34,7 +34,7 @@ export class OrchestratorFactory {
       const status = this.parseSessionStatus(json["status"])
       const project = new Project(json["project"]["path"], json["project"]["name"])
       const messages = this.parseMessages(json["messages"])
-      return new Session(status, json["worktree"], project, messages)
+      return new Session(status, json["worktree"], project, json["claudeCodeSessionId"], messages)
     })
 
     return new SessionManager(sessions)

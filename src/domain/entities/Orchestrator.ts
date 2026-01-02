@@ -11,13 +11,13 @@ export interface IOrchestrator {
   listProjects(): IProject[],
   newSession(...args: NewSessionArgs): void,
   listSessions(): ISession[],
-  sendMessage(session: ISession, message: string): void,
+  sendMessage(messenger: EMessenger, session: ISession, message: string): void,
   listMessages(session: ISession): IMessage[],
   takeoverSession(session: ISession): void
 }
 
 type SessionCtorArgs = ConstructorParameters<typeof Session>
-type NewSessionArgs = [worktree: SessionCtorArgs[1], project: SessionCtorArgs[2]]
+type NewSessionArgs = [worktree: SessionCtorArgs[1], project: SessionCtorArgs[2], claudeCodeSessionId: SessionCtorArgs[3]]
 
 export class Orchestrator implements IOrchestrator {
   projectManager: IProjectManager
@@ -29,6 +29,7 @@ export class Orchestrator implements IOrchestrator {
   }
 
   newProject(...args: ConstructorParameters<typeof Project>): void {
+    // TODO: if name already exists throw error
     const project = new Project(...args)
     this.projectManager.addProject(project)
   }
@@ -46,8 +47,8 @@ export class Orchestrator implements IOrchestrator {
     return this.sessionManager.listSessions()
   }
 
-  sendMessage(session: ISession, messageContent: string): void {
-    const message = new Message({ messenger: EMessenger.USER, content: messageContent })
+  sendMessage(messenger: EMessenger = EMessenger.USER, session: ISession, messageContent: string): void {
+    const message = new Message({ messenger: messenger, content: messageContent })
     session.sendMessage(message)
   }
 
