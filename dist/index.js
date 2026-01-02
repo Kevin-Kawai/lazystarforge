@@ -82,8 +82,8 @@ var Session = class {
 // src/domain/entities/SessionManager.ts
 var SessionManager = class {
   sessions;
-  constructor(sessions = []) {
-    this.sessions = sessions;
+  constructor(sessions2 = []) {
+    this.sessions = sessions2;
   }
   addSession(session) {
     this.sessions.push(session);
@@ -133,14 +133,14 @@ var Orchestrator = class {
 var OrchestratorFactory = class {
   projectsJson;
   sessionsJson;
-  constructor(projects2, sessions) {
+  constructor(projects2, sessions2) {
     this.projectsJson = projects2;
-    this.sessionsJson = sessions;
+    this.sessionsJson = sessions2;
   }
   generate() {
     const projects2 = this.parseProjects(this.projectsJson);
-    const sessions = this.parseSessions(this.sessionsJson);
-    return new Orchestrator(projects2, sessions);
+    const sessions2 = this.parseSessions(this.sessionsJson);
+    return new Orchestrator(projects2, sessions2);
   }
   parseProjects(projectsJson) {
     const projects2 = projectsJson.map((json) => {
@@ -149,13 +149,13 @@ var OrchestratorFactory = class {
     return new ProjectManager(projects2);
   }
   parseSessions(sessionsJson) {
-    const sessions = sessionsJson.map((json) => {
+    const sessions2 = sessionsJson.map((json) => {
       const status = this.parseSessionStatus(json["status"]);
       const project = new Project(json["project"]["path"], json["project"]["name"]);
       const messages = this.parseMessages(json["messages"]);
       return new Session(status, json["worktree"], project, messages);
     });
-    return new SessionManager(sessions);
+    return new SessionManager(sessions2);
   }
   parseSessionStatus(input) {
     if (Object.values(ESessionStatus).includes(input)) {
@@ -185,8 +185,8 @@ var OrchestratorRepository = class {
     const rawProjects = await fs2.readFile(filePath + "/projects.json", "utf8");
     const rawSessions = await fs2.readFile(filePath + "/sessions.json", "utf8");
     const projects2 = JSON.parse(rawProjects);
-    const sessions = JSON.parse(rawSessions);
-    const orchestratorFactory = new OrchestratorFactory(projects2, sessions);
+    const sessions2 = JSON.parse(rawSessions);
+    const orchestratorFactory = new OrchestratorFactory(projects2, sessions2);
     const orchestrator = orchestratorFactory.generate();
     return orchestrator;
   }
@@ -199,8 +199,8 @@ var OrchestratorRepository = class {
   static async convertOrchestratorProjectsToJson(projects2) {
     return JSON.stringify(projects2, null, 2);
   }
-  static async convertOrchestratorSessionsToJson(sessions) {
-    return JSON.stringify(sessions, null, 2);
+  static async convertOrchestratorSessionsToJson(sessions2) {
+    return JSON.stringify(sessions2, null, 2);
   }
 };
 
@@ -210,6 +210,21 @@ var CreateProjectUseCase = class {
     const normalizedPath = normalizeCwd(path2);
     const orchestrator = await OrchestratorRepository.find();
     orchestrator.newProject(normalizedPath, name);
+    await OrchestratorRepository.save(orchestrator);
+  }
+};
+
+// src/usecase/createSessionUseCase.ts
+var CreateSessionUseCase = class {
+  static async createSession(worktree, projectName) {
+    const orchestrator = await OrchestratorRepository.find();
+    const project = orchestrator.listProjects().find((project2) => {
+      return project2.name === projectName;
+    });
+    if (project === void 0) {
+      throw new Error("project does not exist");
+    }
+    orchestrator.newSession(worktree, project);
     await OrchestratorRepository.save(orchestrator);
   }
 };
@@ -226,6 +241,11 @@ var ListProjectsUseCase = class {
 // src/index.ts
 await CreateProjectUseCase.createProject("test", "~/Projects/jbeat-games/");
 var projects = await ListProjectsUseCase.listProjects();
+console.log("projects");
 console.log(projects);
+await CreateSessionUseCase.createSession("refactor", "test");
+var sessions = await ListProjectsUseCase.listProjects();
+console.log("sessions");
+console.log(sessions);
 console.log("lazystarforge");
 //# sourceMappingURL=index.js.map
