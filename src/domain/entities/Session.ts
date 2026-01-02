@@ -1,5 +1,5 @@
-import { IProject } from "./Project"
-import { IMessage } from "./Message";
+import { IProject } from "./Project.js"
+import { IMessage } from "./Message.js";
 
 export enum ESessionStatus {
   ACTIVE = "active",

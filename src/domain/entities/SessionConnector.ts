@@ -1,8 +1,8 @@
-import { EMessenger, IMessage, Message } from "./Message";
-import { IProject, Project } from "./Project";
-import { IProjectManager, ProjectManager } from "./ProjectManager";
-import { Session, ISession } from "./Session";
-import { ISessionManager, SessionManager } from "./SessionManager";
+import { EMessenger, type IMessage, Message } from "./Message.ts";
+import { type IProject, Project } from "./Project.ts";
+import { type IProjectManager, ProjectManager } from "./ProjectManager.ts";
+import { Session, type ISession } from "./Session.ts";
+import { type ISessionManager, SessionManager } from "./SessionManager.ts";
 
 export interface ISessionConnector {
   projectManager: IProjectManager,
