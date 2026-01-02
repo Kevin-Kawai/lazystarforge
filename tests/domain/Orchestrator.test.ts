@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest"
-import { SessionConnector } from "../../src/domain/entities/SessionConnector"
+import { Orchestrator } from "../../src/domain/entities/Orchestrator.ts"
 
 describe("SessionConnector", () => {
   it("adds a new project", () => {
-    const sc = new SessionConnector
+    const sc = new Orchestrator
     sc.newProject('./projects/test', 'test')
     expect(sc.listProjects()).toHaveLength(1)
     expect(sc.listProjects()[0]).toMatchObject({
@@ -13,7 +13,7 @@ describe("SessionConnector", () => {
   })
 
   it("adds a new session", () => {
-    const sc = new SessionConnector
+    const sc = new Orchestrator
     sc.newProject('./projects/test', 'test')
     const project = sc.listProjects()[0]
     sc.newSession('refactor_home_page', project)
@@ -25,7 +25,7 @@ describe("SessionConnector", () => {
   })
 
   it("sends a message to a session", () => {
-    const sc = new SessionConnector
+    const sc = new Orchestrator
     sc.newProject('./projects/test', 'test')
     const project = sc.listProjects()[0]
     sc.newSession('refactor_home_page', project)

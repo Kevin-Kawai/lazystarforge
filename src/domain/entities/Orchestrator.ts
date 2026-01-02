@@ -4,7 +4,7 @@ import { type IProjectManager, ProjectManager } from "./ProjectManager.ts";
 import { Session, type ISession } from "./Session.ts";
 import { type ISessionManager, SessionManager } from "./SessionManager.ts";
 
-export interface ISessionConnector {
+export interface IOrchestrator {
   projectManager: IProjectManager,
   sessionManager: ISessionManager,
   currentAttachedSession: ISession | null,
@@ -17,7 +17,7 @@ export interface ISessionConnector {
   takeoverSession(session: ISession): void
 }
 
-export class SessionConnector implements ISessionConnector {
+export class Orchestrator implements IOrchestrator {
   projectManager: IProjectManager
   sessionManager: ISessionManager
   currentAttachedSession: ISession | null = null
