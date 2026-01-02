@@ -1,5 +1,20 @@
 #!/usr/bin/env node
 
+// src/domain/entities/Message.ts
+var EMessenger = /* @__PURE__ */ ((EMessenger2) => {
+  EMessenger2["USER"] = "user";
+  EMessenger2["SYSTEM"] = "system";
+  return EMessenger2;
+})(EMessenger || {});
+var Message = class {
+  messenger;
+  content;
+  constructor({ messenger, content }) {
+    this.messenger = messenger;
+    this.content = content;
+  }
+};
+
 // src/domain/entities/Project.ts
 var Project = class {
   name;
@@ -10,35 +25,36 @@ var Project = class {
   }
 };
 
-// src/usecase/createProjectUseCase.ts
-var CreateProjectUseCase = class {
-  static async createProject(name, path2) {
-    const project2 = new Project(path2, name);
-    return project2;
+// src/domain/entities/ProjectManager.ts
+var ProjectManager = class {
+  projects;
+  constructor(projects = []) {
+    this.projects = projects;
   }
-};
-
-// src/domain/entities/Message.ts
-var Message = class {
-  messenger;
-  content;
-  constructor({ messenger, content }) {
-    this.messenger = messenger;
-    this.content = content;
+  addProject(project2) {
+    this.projects.push(project2);
+  }
+  listProjects() {
+    return this.projects;
   }
 };
 
 // src/domain/entities/Session.ts
+var ESessionStatus = /* @__PURE__ */ ((ESessionStatus2) => {
+  ESessionStatus2["ACTIVE"] = "active";
+  ESessionStatus2["IDLE"] = "idle";
+  return ESessionStatus2;
+})(ESessionStatus || {});
 var Session = class {
   status;
   worktree;
   project;
   messages;
-  constructor(worktree, project2) {
-    this.status = "idle" /* IDLE */;
+  constructor(status = "idle" /* IDLE */, worktree, project2, messages = []) {
+    this.status = status;
     this.worktree = worktree;
     this.project = project2;
-    this.messages = [];
+    this.messages = messages;
   }
   sendMessage(message) {
     this.messages.push(message);
@@ -47,51 +63,56 @@ var Session = class {
   }
 };
 
-// src/usecase/createSessionUseCase.ts
-var CreateSessionUseCase = class {
-  static async createSession(worktree, project2) {
-    const session2 = new Session(worktree, project2);
-    return session2;
+// src/domain/entities/SessionManager.ts
+var SessionManager = class {
+  sessions;
+  constructor(sessions = []) {
+    this.sessions = sessions;
+  }
+  addSession(session2) {
+    this.sessions.push(session2);
+  }
+  listSessions() {
+    return this.sessions;
   }
 };
 
-// src/gateway/ClaudeCodeGateway.ts
-import { query } from "@anthropic-ai/claude-agent-sdk";
-var ClaudeCodeGateway = class {
-  static async *streamMessage(session2, content) {
-    for await (const message of query({
-      prompt: content,
-      options: {
-        cwd: session2.project.path
-      }
-    })) {
-      if (message.type === "assistant" && message.message?.content) {
-        for (const block of message.message.content) {
-          if ("text" in block) yield { type: "assistant_text", text: block.text };
-          else if ("name" in block) yield { type: "tool_call", name: block.name };
-        }
-      } else if (message.type === "result") {
-        yield { type: "done", subtype: message.subtype };
-      }
-    }
+// src/domain/entities/Orchestrator.ts
+var Orchestrator = class {
+  projectManager;
+  sessionManager;
+  constructor(projectManager = new ProjectManager(), sessionManager = new SessionManager()) {
+    this.projectManager = projectManager;
+    this.sessionManager = sessionManager;
+  }
+  newProject(...args) {
+    const project2 = new Project(...args);
+    this.projectManager.addProject(project2);
+  }
+  listProjects() {
+    return this.projectManager.listProjects();
+  }
+  newSession(...args) {
+    const session2 = new Session("idle" /* IDLE */, ...args);
+    this.sessionManager.addSession(session2);
+  }
+  listSessions() {
+    return this.sessionManager.listSessions();
+  }
+  sendMessage(session2, messageContent) {
+    const message = new Message({ messenger: "user" /* USER */, content: messageContent });
+    session2.sendMessage(message);
+  }
+  listMessages(session2) {
+    return session2.messages;
+  }
+  takeoverSession(session2) {
+    session2.manualTakeover();
   }
 };
 
-// src/usecase/sendMessageUseCase.ts
-var SendMessageUseCase = class {
-  static async sendMessage(message, session2) {
-    const userMessage = new Message({ messenger: "user" /* USER */, content: message });
-    session2.sendMessage(userMessage);
-    session2.status = "active" /* ACTIVE */;
-    for await (const event of ClaudeCodeGateway.streamMessage(session2, message)) {
-      if (event.type === "assistant_text") {
-        const systemMessage = new Message({ messenger: "system" /* SYSTEM */, content: event.text });
-        session2.sendMessage(systemMessage);
-      }
-      if (event.type === "done") session2.status = "idle" /* IDLE */;
-    }
-  }
-};
+// src/repository/orchestratorRepository.ts
+import { promises as fs2 } from "fs";
 
 // src/utils/normalizeCwd.ts
 import os from "os";
@@ -106,13 +127,96 @@ function normalizeCwd(p) {
   return abs;
 }
 
+// src/factory/orchestratorFactory.ts
+var OrchestratorFactory = class {
+  projectsJson;
+  sessionsJson;
+  constructor(projects, sessions) {
+    this.projectsJson = projects;
+    this.sessionsJson = sessions;
+  }
+  generate() {
+    const projects = this.parseProjects(this.projectsJson);
+    const sessions = this.parseSessions(this.sessionsJson);
+    return new Orchestrator(projects, sessions);
+  }
+  parseProjects(projectsJson) {
+    const projects = projectsJson.map((json) => {
+      return new Project(json["path"], json["name"]);
+    });
+    return new ProjectManager(projects);
+  }
+  parseSessions(sessionsJson) {
+    const sessions = sessionsJson.map((json) => {
+      const status = this.parseSessionStatus(json["status"]);
+      const project2 = new Project(json["project"]["path"], json["project"]["name"]);
+      const messages = this.parseMessages(json["messages"]);
+      return new Session(status, json["worktree"], project2, messages);
+    });
+    return sessions;
+  }
+  parseSessionStatus(input) {
+    if (Object.values(ESessionStatus).includes(input)) {
+      return input;
+    }
+    throw new Error("invalid session status");
+  }
+  parseMessages(messagesJson) {
+    const messages = messagesJson.map((json) => {
+      const messenger = this.parseMessenger(json["messenger"]);
+      return new Message({ messenger, content: json["content"] });
+    });
+    return messages;
+  }
+  parseMessenger(input) {
+    if (Object.values(EMessenger).includes(input)) {
+      return input;
+    }
+    throw new Error("invalid messege messenger");
+  }
+};
+
+// src/repository/orchestratorRepository.ts
+var filePath = normalizeCwd("~/.lazystarforge/data");
+var OrchestratorRepository = class {
+  static async find() {
+    const rawProjects = await fs2.readFile(filePath + "/projects.json", "utf8");
+    const rawSessions = await fs2.readFile(filePath + "/sessions.json", "utf8");
+    const projects = JSON.parse(rawProjects);
+    const sessions = JSON.parse(rawSessions);
+    const orchestratorFactory = new OrchestratorFactory(projects, sessions);
+    const orchestrator2 = orchestratorFactory.generate();
+    return orchestrator2;
+  }
+  static async save(orchestrator2) {
+    const projectsJson = await this.convertOrchestratorProjectsToJson(orchestrator2.listProjects());
+    const sessionsJson = await this.convertOrchestratorSessionsToJson(orchestrator2.listSessions());
+    await fs2.writeFile(filePath + "/projects.json", projectsJson, "utf8");
+    await fs2.writeFile(filePath + "/sessions.json", sessionsJson, "utf8");
+  }
+  static async convertOrchestratorProjectsToJson(projects) {
+    return JSON.stringify(projects, null, 2);
+  }
+  static async convertOrchestratorSessionsToJson(sessions) {
+    return JSON.stringify(sessions, null, 2);
+  }
+};
+
+// src/gateway/ClaudeCodeGateway.ts
+import { query } from "@anthropic-ai/claude-agent-sdk";
+
 // src/index.ts
 var projectPath = normalizeCwd("~/Projects/jbeat-games/");
-var project = await CreateProjectUseCase.createProject("jbeat-games", projectPath);
-var session = await CreateSessionUseCase.createSession("test_worktree", project);
-await SendMessageUseCase.sendMessage("using the notion mcp, what's the title of this page https://www.notion.so/LazyStarForge-Initial-POC-2d1227e94f6180e999e2c6d5f2ea025d", session);
-session.messages.forEach((message) => {
-  console.log(message);
-});
+var orchestrator = new Orchestrator();
+orchestrator.newProject("./projects/test", "test");
+var project = orchestrator.listProjects()[0];
+orchestrator.newSession("refactor_home_page", project);
+var session = orchestrator.listSessions()[0];
+orchestrator.sendMessage(session, "test message");
+console.log("saving orchestrator");
+await OrchestratorRepository.save(orchestrator);
+console.log("finding orchestrator");
+var orchestratorNew = await OrchestratorRepository.find();
+console.log(orchestratorNew);
 console.log("lazystarforge");
 //# sourceMappingURL=index.js.map

@@ -1,4 +1,4 @@
-import { IProject } from "./Project"
+import { type IProject } from "./Project.ts"
 
 export interface IProjectManager {
   projects: IProject[],
@@ -9,8 +9,8 @@ export interface IProjectManager {
 export class ProjectManager implements IProjectManager {
   projects: IProject[]
 
-  constructor() {
-    this.projects = []
+  constructor(projects: IProject[] = []) {
+    this.projects = projects
   }
 
   addProject(project: IProject): void {

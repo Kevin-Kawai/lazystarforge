@@ -1,5 +1,5 @@
-import { IProject } from "./Project.js"
-import { IMessage } from "./Message.js";
+import { type IProject } from "./Project.ts"
+import { type IMessage } from "./Message.ts";
 
 export enum ESessionStatus {
   ACTIVE = "active",
@@ -21,11 +21,11 @@ export class Session implements ISession {
   project: IProject
   messages: IMessage[]
 
-  constructor(worktree: string, project: IProject) {
-    this.status = ESessionStatus.IDLE
+  constructor(status: ESessionStatus = ESessionStatus.IDLE, worktree: string, project: IProject, messages: IMessage[] = []) {
+    this.status = status
     this.worktree = worktree
     this.project = project
-    this.messages = []
+    this.messages = messages
   }
 
   sendMessage(message: IMessage): void {

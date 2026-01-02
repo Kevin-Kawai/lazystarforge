@@ -1,4 +1,4 @@
-import { ISession } from "./Session"
+import { type ISession } from "./Session.ts"
 
 export interface ISessionManager {
   sessions: ISession[],
@@ -9,8 +9,8 @@ export interface ISessionManager {
 export class SessionManager implements ISessionManager {
   sessions: ISession[]
 
-  constructor() {
-    this.sessions = []
+  constructor(sessions: ISession[] = []) {
+    this.sessions = sessions
   }
 
   addSession(session: ISession): void {

@@ -39,6 +39,7 @@ describe("SessionConnector", () => {
   })
 
   it("lets you takeover a session", () => {
+    // TODO
   })
 })
 
