@@ -3,6 +3,7 @@ import { Orchestrator } from "../domain/entities/Orchestrator.ts"
 import { Project } from "../domain/entities/Project.ts"
 import { ProjectManager } from "../domain/entities/ProjectManager.ts"
 import { ESessionStatus, Session } from "../domain/entities/Session.ts"
+import { SessionManager } from "../domain/entities/SessionManager.ts"
 
 export class OrchestratorFactory {
   projectsJson: any
@@ -36,7 +37,7 @@ export class OrchestratorFactory {
       return new Session(status, json["worktree"], project, messages)
     })
 
-    return sessions
+    return new SessionManager(sessions)
   }
 
   private parseSessionStatus(input: string): ESessionStatus {

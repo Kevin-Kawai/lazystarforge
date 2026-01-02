@@ -1,5 +1,21 @@
 #!/usr/bin/env node
 
+// src/repository/orchestratorRepository.ts
+import { promises as fs2 } from "fs";
+
+// src/utils/normalizeCwd.ts
+import os from "os";
+import path from "path";
+import fs from "fs";
+function normalizeCwd(p) {
+  const expanded = p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p === "~" ? os.homedir() : p;
+  const abs = path.resolve(expanded);
+  if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) {
+    throw new Error(`Invalid cwd (does not exist or not a directory): ${abs}`);
+  }
+  return abs;
+}
+
 // src/domain/entities/Message.ts
 var EMessenger = /* @__PURE__ */ ((EMessenger2) => {
   EMessenger2["USER"] = "user";
@@ -28,11 +44,11 @@ var Project = class {
 // src/domain/entities/ProjectManager.ts
 var ProjectManager = class {
   projects;
-  constructor(projects = []) {
-    this.projects = projects;
+  constructor(projects2 = []) {
+    this.projects = projects2;
   }
-  addProject(project2) {
-    this.projects.push(project2);
+  addProject(project) {
+    this.projects.push(project);
   }
   listProjects() {
     return this.projects;
@@ -50,10 +66,10 @@ var Session = class {
   worktree;
   project;
   messages;
-  constructor(status = "idle" /* IDLE */, worktree, project2, messages = []) {
+  constructor(status = "idle" /* IDLE */, worktree, project, messages = []) {
     this.status = status;
     this.worktree = worktree;
-    this.project = project2;
+    this.project = project;
     this.messages = messages;
   }
   sendMessage(message) {
@@ -69,8 +85,8 @@ var SessionManager = class {
   constructor(sessions = []) {
     this.sessions = sessions;
   }
-  addSession(session2) {
-    this.sessions.push(session2);
+  addSession(session) {
+    this.sessions.push(session);
   }
   listSessions() {
     return this.sessions;
@@ -86,74 +102,60 @@ var Orchestrator = class {
     this.sessionManager = sessionManager;
   }
   newProject(...args) {
-    const project2 = new Project(...args);
-    this.projectManager.addProject(project2);
+    const project = new Project(...args);
+    this.projectManager.addProject(project);
   }
   listProjects() {
     return this.projectManager.listProjects();
   }
   newSession(...args) {
-    const session2 = new Session("idle" /* IDLE */, ...args);
-    this.sessionManager.addSession(session2);
+    const session = new Session("idle" /* IDLE */, ...args);
+    this.sessionManager.addSession(session);
   }
   listSessions() {
+    console.log(this);
+    console.log(this.sessionManager);
     return this.sessionManager.listSessions();
   }
-  sendMessage(session2, messageContent) {
+  sendMessage(session, messageContent) {
     const message = new Message({ messenger: "user" /* USER */, content: messageContent });
-    session2.sendMessage(message);
+    session.sendMessage(message);
   }
-  listMessages(session2) {
-    return session2.messages;
+  listMessages(session) {
+    return session.messages;
   }
-  takeoverSession(session2) {
-    session2.manualTakeover();
+  takeoverSession(session) {
+    session.manualTakeover();
   }
 };
-
-// src/repository/orchestratorRepository.ts
-import { promises as fs2 } from "fs";
-
-// src/utils/normalizeCwd.ts
-import os from "os";
-import path from "path";
-import fs from "fs";
-function normalizeCwd(p) {
-  const expanded = p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p === "~" ? os.homedir() : p;
-  const abs = path.resolve(expanded);
-  if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) {
-    throw new Error(`Invalid cwd (does not exist or not a directory): ${abs}`);
-  }
-  return abs;
-}
 
 // src/factory/orchestratorFactory.ts
 var OrchestratorFactory = class {
   projectsJson;
   sessionsJson;
-  constructor(projects, sessions) {
-    this.projectsJson = projects;
+  constructor(projects2, sessions) {
+    this.projectsJson = projects2;
     this.sessionsJson = sessions;
   }
   generate() {
-    const projects = this.parseProjects(this.projectsJson);
+    const projects2 = this.parseProjects(this.projectsJson);
     const sessions = this.parseSessions(this.sessionsJson);
-    return new Orchestrator(projects, sessions);
+    return new Orchestrator(projects2, sessions);
   }
   parseProjects(projectsJson) {
-    const projects = projectsJson.map((json) => {
+    const projects2 = projectsJson.map((json) => {
       return new Project(json["path"], json["name"]);
     });
-    return new ProjectManager(projects);
+    return new ProjectManager(projects2);
   }
   parseSessions(sessionsJson) {
     const sessions = sessionsJson.map((json) => {
       const status = this.parseSessionStatus(json["status"]);
-      const project2 = new Project(json["project"]["path"], json["project"]["name"]);
+      const project = new Project(json["project"]["path"], json["project"]["name"]);
       const messages = this.parseMessages(json["messages"]);
-      return new Session(status, json["worktree"], project2, messages);
+      return new Session(status, json["worktree"], project, messages);
     });
-    return sessions;
+    return new SessionManager(sessions);
   }
   parseSessionStatus(input) {
     if (Object.values(ESessionStatus).includes(input)) {
@@ -182,41 +184,48 @@ var OrchestratorRepository = class {
   static async find() {
     const rawProjects = await fs2.readFile(filePath + "/projects.json", "utf8");
     const rawSessions = await fs2.readFile(filePath + "/sessions.json", "utf8");
-    const projects = JSON.parse(rawProjects);
+    const projects2 = JSON.parse(rawProjects);
     const sessions = JSON.parse(rawSessions);
-    const orchestratorFactory = new OrchestratorFactory(projects, sessions);
-    const orchestrator2 = orchestratorFactory.generate();
-    return orchestrator2;
+    const orchestratorFactory = new OrchestratorFactory(projects2, sessions);
+    const orchestrator = orchestratorFactory.generate();
+    return orchestrator;
   }
-  static async save(orchestrator2) {
-    const projectsJson = await this.convertOrchestratorProjectsToJson(orchestrator2.listProjects());
-    const sessionsJson = await this.convertOrchestratorSessionsToJson(orchestrator2.listSessions());
+  static async save(orchestrator) {
+    const projectsJson = await this.convertOrchestratorProjectsToJson(orchestrator.listProjects());
+    const sessionsJson = await this.convertOrchestratorSessionsToJson(orchestrator.listSessions());
     await fs2.writeFile(filePath + "/projects.json", projectsJson, "utf8");
     await fs2.writeFile(filePath + "/sessions.json", sessionsJson, "utf8");
   }
-  static async convertOrchestratorProjectsToJson(projects) {
-    return JSON.stringify(projects, null, 2);
+  static async convertOrchestratorProjectsToJson(projects2) {
+    return JSON.stringify(projects2, null, 2);
   }
   static async convertOrchestratorSessionsToJson(sessions) {
     return JSON.stringify(sessions, null, 2);
   }
 };
 
-// src/gateway/ClaudeCodeGateway.ts
-import { query } from "@anthropic-ai/claude-agent-sdk";
+// src/usecase/createProjectUseCase.ts
+var CreateProjectUseCase = class {
+  static async createProject(name, path2) {
+    const normalizedPath = normalizeCwd(path2);
+    const orchestrator = await OrchestratorRepository.find();
+    orchestrator.newProject(normalizedPath, name);
+    await OrchestratorRepository.save(orchestrator);
+  }
+};
+
+// src/usecase/listProjectsUseCase.ts
+var ListProjectsUseCase = class {
+  static async listProjects() {
+    const orchestrator = await OrchestratorRepository.find();
+    const projects2 = orchestrator.listProjects();
+    return projects2;
+  }
+};
 
 // src/index.ts
-var projectPath = normalizeCwd("~/Projects/jbeat-games/");
-var orchestrator = new Orchestrator();
-orchestrator.newProject("./projects/test", "test");
-var project = orchestrator.listProjects()[0];
-orchestrator.newSession("refactor_home_page", project);
-var session = orchestrator.listSessions()[0];
-orchestrator.sendMessage(session, "test message");
-console.log("saving orchestrator");
-await OrchestratorRepository.save(orchestrator);
-console.log("finding orchestrator");
-var orchestratorNew = await OrchestratorRepository.find();
-console.log(orchestratorNew);
+await CreateProjectUseCase.createProject("test", "~/Projects/jbeat-games/");
+var projects = await ListProjectsUseCase.listProjects();
+console.log(projects);
 console.log("lazystarforge");
 //# sourceMappingURL=index.js.map

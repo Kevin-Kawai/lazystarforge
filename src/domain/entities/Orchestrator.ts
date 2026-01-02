@@ -43,6 +43,8 @@ export class Orchestrator implements IOrchestrator {
   }
 
   listSessions(): ISession[] {
+    console.log(this)
+    console.log(this.sessionManager)
     return this.sessionManager.listSessions()
   }
 
