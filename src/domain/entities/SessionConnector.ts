@@ -1,3 +1,4 @@
+import { EMessenger, IMessage, Message } from "./Message";
 import { IProject, Project } from "./Project";
 import { IProjectManager, ProjectManager } from "./ProjectManager";
 import { Session, ISession } from "./Session";
@@ -11,8 +12,9 @@ export interface ISessionConnector {
   listProjects(): IProject[],
   newSession(...args: ConstructorParameters<typeof Session>): void,
   listSessions(): ISession[],
-  attachToSession(session: ISession): void,
-  detachFromSession(): void
+  sendMessage(session: ISession, message: String): void,
+  listMessages(session: ISession): IMessage[],
+  takeoverSession(session: ISession): void
 }
 
 export class SessionConnector implements ISessionConnector {
@@ -43,15 +45,16 @@ export class SessionConnector implements ISessionConnector {
     return this.sessionManager.listSessions()
   }
 
-  attachToSession(session: ISession): void {
-    session.attach()
-    this.currentAttachedSession = session
+  sendMessage(session: ISession, messageContent: String): void {
+    const message = new Message({ messenger: EMessenger.USER, content: messageContent })
+    session.sendMessage(message)
   }
 
-  detachFromSession(): void {
-    const session = this.currentAttachedSession
-    if (!session) return
-    session.detach()
-    this.currentAttachedSession = null
+  listMessages(session: ISession): IMessage[] {
+    return session.messages
+  }
+
+  takeoverSession(session: ISession): void {
+    session.manualTakeover()
   }
 }

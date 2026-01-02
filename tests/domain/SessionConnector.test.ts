@@ -24,32 +24,21 @@ describe("SessionConnector", () => {
     })
   })
 
-  it("attaches to a session", () => {
+  it("sends a message to a session", () => {
     const sc = new SessionConnector
     sc.newProject('./projects/test', 'test')
     const project = sc.listProjects()[0]
     sc.newSession('refactor_home_page', project)
     const session = sc.listSessions()[0]
-    sc.attachToSession(session)
-    expect(sc.currentAttachedSession).toMatchObject({
-      worktree: 'refactor_home_page',
-      project: { path: "./projects/test", name: "test" }
+    sc.sendMessage(session, 'refactor build process')
+    expect(sc.listMessages(session)).toHaveLength(1)
+    expect(sc.listMessages(session)[0]).toMatchObject({
+      messenger: 'user',
+      content: 'refactor build process'
     })
   })
 
-  it("detaches from a session", () => {
-    const sc = new SessionConnector
-    sc.newProject('./projects/test', 'test')
-    const project = sc.listProjects()[0]
-    sc.newSession('refactor_home_page', project)
-    const session = sc.listSessions()[0]
-    sc.attachToSession(session)
-    expect(sc.currentAttachedSession).toMatchObject({
-      worktree: 'refactor_home_page',
-      project: { path: "./projects/test", name: "test" }
-    })
-    sc.detachFromSession()
-    expect(sc.currentAttachedSession).toEqual(null)
+  it("lets you takeover a session", () => {
   })
 })
 
