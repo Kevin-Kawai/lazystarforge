@@ -23,7 +23,7 @@ export class Session implements ISession {
   messages: IMessage[]
   claudeCodeSessionId: string;
 
-  constructor(status: ESessionStatus = ESessionStatus.IDLE, project: IProject, claudeCodeSessionId: string, messages: IMessage[] = []) {
+  constructor(project: IProject, claudeCodeSessionId: string, status: ESessionStatus = ESessionStatus.IDLE, messages: IMessage[] = []) {
     this.status = status
     this.project = project
     this.claudeCodeSessionId = claudeCodeSessionId

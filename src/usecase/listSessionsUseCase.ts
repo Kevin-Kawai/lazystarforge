@@ -1,9 +1,8 @@
-import { OrchestratorRepository } from "../repository/orchestratorRepository.ts";
+import { ProjectRepository } from "../repository/projectRepository.ts";
 
 export class ListSessionsUseCase {
-  static async ListSessions() {
-    const orchestrator = await OrchestratorRepository.find()
-    const sessions = orchestrator.listSessions()
-    return sessions
+  static async ListSessions(projectName: string) {
+    const project = await ProjectRepository.find(projectName)
+    return project.sessions
   }
 }

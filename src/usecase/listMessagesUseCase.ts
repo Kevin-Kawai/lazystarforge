@@ -1,14 +1,8 @@
-import { OrchestratorRepository } from "../repository/orchestratorRepository.ts";
+import { ProjectRepository } from "../repository/projectRepository.ts";
 
 export class ListMessagesUseCase {
-  static async listMesseges(sessionId: string) {
-    const orchestrator = await OrchestratorRepository.find()
-    const session = orchestrator.listSessions().find((session) => {
-      return session.claudeCodeSessionId === sessionId
-    })
-
-    if (session === undefined) throw new Error("invalid session")
-
-    return orchestrator.listMessages(session)
+  static async listMessages(projectName: string, sessionId: string) {
+    const project = await ProjectRepository.find(projectName)
+    return project.viewMessages(sessionId)
   }
 }

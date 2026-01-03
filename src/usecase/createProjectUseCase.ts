@@ -1,11 +1,11 @@
-import { OrchestratorRepository } from "../repository/orchestratorRepository.ts"
+import { Project } from "../domain/entities/Project.ts"
+import { ProjectRepository } from "../repository/projectRepository.ts"
 import { normalizeCwd } from "../utils/normalizeCwd.ts"
 
 export class CreateProjectUseCase {
   static async createProject(name: string, path: string) {
     const normalizedPath = normalizeCwd(path)
-    const orchestrator = await OrchestratorRepository.find()
-    orchestrator.newProject(normalizedPath, name)
-    await OrchestratorRepository.save(orchestrator)
+    const project = new Project(normalizedPath, name)
+    await ProjectRepository.save(project)
   }
 }

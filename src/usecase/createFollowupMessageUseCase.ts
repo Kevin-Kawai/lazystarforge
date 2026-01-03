@@ -1,22 +1,17 @@
-import { EMessenger } from "../domain/entities/Message.ts";
 import { ClaudeCodeGateway } from "../gateway/ClaudeCodeGateway.ts";
-import { OrchestratorRepository } from "../repository/orchestratorRepository.ts";
+import { ProjectRepository } from "../repository/projectRepository.ts";
 
 export class createFollowupMessageUseCase {
-  static async sendMessage(userMessage: string, sessionId: string) {
-    const orchestrator = await OrchestratorRepository.find()
-    const session = orchestrator.listSessions().find((session) => {
-      return session.claudeCodeSessionId === sessionId
-    })
+  static async sendMessage(userMessage: string, projectName: string, sessionId: string) {
+    const project = await ProjectRepository.find(projectName)
+    project.sendUserMessage(userMessage, sessionId)
 
-    if (session === undefined) throw new Error("invalid session")
-
-    orchestrator.sendMessage(EMessenger.USER, session, userMessage)
-    for await (const event of ClaudeCodeGateway.streamMessage(session.project.path, userMessage, sessionId)) {
+    for await (const event of ClaudeCodeGateway.streamMessage(project.path, userMessage, sessionId)) {
       if (event.type === "assistant_text") {
-        orchestrator.sendMessage(EMessenger.SYSTEM, session, event.text)
+        project.sendAssistantMessage(event.text, event.sessionId)
       }
     }
-    await OrchestratorRepository.save(orchestrator)
+
+    await ProjectRepository.save(project)
   }
 }

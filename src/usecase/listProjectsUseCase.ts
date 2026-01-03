@@ -1,9 +1,8 @@
-import { OrchestratorRepository } from "../repository/orchestratorRepository.ts";
+import { ProjectRepository } from "../repository/projectRepository.ts";
 
 export class ListProjectsUseCase {
   static async listProjects() {
-    const orchestrator = await OrchestratorRepository.find()
-    const projects = orchestrator.listProjects()
+    const projects = await ProjectRepository.findAll()
     return projects
   }
 }
