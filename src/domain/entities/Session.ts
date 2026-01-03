@@ -1,5 +1,5 @@
 import { type IProject } from "./Project.ts"
-import { type IMessage } from "./Message.ts";
+import { EMessenger, Message, type IMessage } from "./Message.ts";
 
 export enum ESessionStatus {
   ACTIVE = "active",
@@ -8,39 +8,39 @@ export enum ESessionStatus {
 
 export interface ISession {
   status: ESessionStatus,
-  worktree: string,
+  updated: boolean,
   project: IProject,
   messages: IMessage[],
   claudeCodeSessionId: string,
-  updated: boolean,
-  sendMessage(message: IMessage): void,
-  manualTakeover(): void
+  sendUserMessage(content: string): void,
+  sendAssistantMessage(message: string): void,
 }
 
 export class Session implements ISession {
   status: ESessionStatus
-  worktree: string
-  project: IProject
-  claudeCodeSessionId: string;
-  messages: IMessage[]
   updated: boolean
+  project: IProject
+  messages: IMessage[]
+  claudeCodeSessionId: string;
 
-  constructor(status: ESessionStatus = ESessionStatus.IDLE, worktree: string, project: IProject, claudeCodeSessionId: string, messages: IMessage[] = []) {
+  constructor(status: ESessionStatus = ESessionStatus.IDLE, project: IProject, claudeCodeSessionId: string, messages: IMessage[] = []) {
     this.status = status
-    this.worktree = worktree
     this.project = project
     this.claudeCodeSessionId = claudeCodeSessionId
     this.messages = messages
     this.updated = false
   }
 
-  sendMessage(message: IMessage): void {
+  sendUserMessage(content: string): void {
+    const messenger = EMessenger.USER
+    const message = new Message({ messenger, content })
     this.messages.push(message)
-    this.updated = true
   }
 
-  manualTakeover(): void {
-    // TODO
+  sendAssistantMessage(content: string): void {
+    const messenger = EMessenger.SYSTEM
+    const message = new Message({ messenger, content })
+    this.messages.push(message)
   }
 }
 
