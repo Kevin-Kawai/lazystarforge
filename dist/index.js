@@ -1,27 +1,7 @@
 #!/usr/bin/env node
 
-// src/gateway/ClaudeCodeGateway.ts
-import { query } from "@anthropic-ai/claude-agent-sdk";
-var ClaudeCodeGateway = class {
-  static async *streamMessage(path3, content, sessionId) {
-    for await (const message of query({
-      prompt: content,
-      options: {
-        cwd: path3,
-        resume: sessionId
-      }
-    })) {
-      if (message.type === "assistant" && message.message?.content) {
-        for (const block of message.message.content) {
-          if ("text" in block) yield { type: "assistant_text", text: block.text, sessionId: message.session_id };
-          else if ("name" in block) yield { type: "tool_call", name: block.name };
-        }
-      } else if (message.type === "result") {
-        yield { type: "done", subtype: message.subtype };
-      }
-    }
-  }
-};
+// src/index.ts
+import blessed from "neo-blessed";
 
 // src/repository/projectRepository.ts
 import { promises as fs2 } from "fs";
@@ -60,22 +40,22 @@ var Session = class {
   project;
   messages;
   claudeCodeSessionId;
-  constructor(project, claudeCodeSessionId, status = "idle" /* IDLE */, messages2 = []) {
+  constructor(project, claudeCodeSessionId, status = "idle" /* IDLE */, messages = []) {
     this.status = status;
     this.project = project;
     this.claudeCodeSessionId = claudeCodeSessionId;
-    this.messages = messages2;
+    this.messages = messages;
     this.updated = false;
   }
   sendUserMessage(content) {
     const messenger = "user" /* USER */;
-    const message = new Message({ messenger, content });
-    this.messages.push(message);
+    const message2 = new Message({ messenger, content });
+    this.messages.push(message2);
   }
   sendAssistantMessage(content) {
     const messenger = "system" /* SYSTEM */;
-    const message = new Message({ messenger, content });
-    this.messages.push(message);
+    const message2 = new Message({ messenger, content });
+    this.messages.push(message2);
   }
 };
 
@@ -89,9 +69,9 @@ var Project = class {
     this.name = name;
     this.sessions = sessions2;
   }
-  startSession(claudeCodeSessionId, message) {
+  startSession(claudeCodeSessionId, message2) {
     const session = new Session(this, claudeCodeSessionId, "idle" /* IDLE */);
-    session.sendUserMessage(message);
+    session.sendUserMessage(message2);
     this.sessions.push(session);
   }
   sendUserMessage(content, sessionId) {
@@ -130,8 +110,8 @@ var ProjectFactory = class {
         project,
         sessionJson["claudeCodeSessionId"],
         sessionJson["status"],
-        sessionJson["messages"]?.map((message) => {
-          return new Message({ messenger: message["messenger"], content: message["content"] });
+        sessionJson["messages"]?.map((message2) => {
+          return new Message({ messenger: message2["messenger"], content: message2["content"] });
         }) ?? []
       );
       session.updated = Boolean(sessionJson["updated"]);
@@ -209,33 +189,11 @@ var ProjectRepository = class {
       status: session.status,
       updated: session.updated,
       project: session.project.name,
-      messages: session.messages.map((message) => ({
-        messenger: message.messenger,
-        content: message.content
+      messages: session.messages.map((message2) => ({
+        messenger: message2.messenger,
+        content: message2.content
       }))
     };
-  }
-};
-
-// src/usecase/createFollowupMessageUseCase.ts
-var createFollowupMessageUseCase = class {
-  static async sendMessage(userMessage, projectName, sessionId) {
-    const project = await ProjectRepository.find(projectName);
-    project.sendUserMessage(userMessage, sessionId);
-    for await (const event of ClaudeCodeGateway.streamMessage(project.path, userMessage, sessionId)) {
-      if (event.type === "assistant_text") {
-        project.sendAssistantMessage(event.text, event.sessionId);
-      }
-    }
-    await ProjectRepository.save(project);
-  }
-};
-
-// src/usecase/listMessagesUseCase.ts
-var ListMessagesUseCase = class {
-  static async listMessages(projectName, sessionId) {
-    const project = await ProjectRepository.find(projectName);
-    return project.viewMessages(sessionId);
   }
 };
 
@@ -255,11 +213,382 @@ var ListSessionsUseCase = class {
   }
 };
 
+// src/usecase/listMessagesUseCase.ts
+var ListMessagesUseCase = class {
+  static async listMessages(projectName, sessionId) {
+    const project = await ProjectRepository.find(projectName);
+    return project.viewMessages(sessionId);
+  }
+};
+
+// src/gateway/ClaudeCodeGateway.ts
+import { query } from "@anthropic-ai/claude-agent-sdk";
+var ClaudeCodeGateway = class {
+  static async *streamMessage(path3, content, sessionId) {
+    for await (const message2 of query({
+      prompt: content,
+      options: {
+        cwd: path3,
+        resume: sessionId
+      }
+    })) {
+      if (message2.type === "assistant" && message2.message?.content) {
+        for (const block of message2.message.content) {
+          if ("text" in block) yield { type: "assistant_text", text: block.text, sessionId: message2.session_id };
+          else if ("name" in block) yield { type: "tool_call", name: block.name };
+        }
+      } else if (message2.type === "result") {
+        yield { type: "done", subtype: message2.subtype };
+      }
+    }
+  }
+};
+
+// src/usecase/createFollowupMessageUseCase.ts
+var createFollowupMessageUseCase = class {
+  static async sendMessage(userMessage, projectName, sessionId) {
+    const project = await ProjectRepository.find(projectName);
+    project.sendUserMessage(userMessage, sessionId);
+    for await (const event of ClaudeCodeGateway.streamMessage(project.path, userMessage, sessionId)) {
+      if (event.type === "assistant_text") {
+        project.sendAssistantMessage(event.text, event.sessionId);
+      }
+    }
+    await ProjectRepository.save(project);
+  }
+};
+
+// src/usecase/createSessionUseCase.ts
+var CreateSessionUseCase = class {
+  static async createSession(projectName, userMessage) {
+    const project = await ProjectRepository.find(projectName);
+    let initialMessage = true;
+    for await (const event of ClaudeCodeGateway.streamMessage(project.path, userMessage)) {
+      if (event.type === "assistant_text") {
+        if (initialMessage) {
+          project.startSession(event.sessionId, userMessage);
+          initialMessage = false;
+        }
+        project.sendAssistantMessage(event.text, event.sessionId);
+      }
+    }
+    await ProjectRepository.save(project);
+  }
+};
+
+// src/usecase/createProjectUseCase.ts
+var CreateProjectUseCase = class {
+  static async createProject(name, path3) {
+    const normalizedPath = normalizeCwd(path3);
+    const project = new Project(normalizedPath, name);
+    await ProjectRepository.save(project);
+  }
+};
+
 // src/index.ts
 var projects = await ListProjectsUseCase.listProjects();
 var sessions = await ListSessionsUseCase.ListSessions(projects[0].name);
-await createFollowupMessageUseCase.sendMessage("double the result of the last value I had you calculate", projects[0].name, sessions[0].claudeCodeSessionId);
-var messages = await ListMessagesUseCase.listMessages(projects[0].name, sessions[0].claudeCodeSessionId);
-console.log("messages");
-console.log(messages);
+var message = await ListMessagesUseCase.listMessages(projects[0].name, sessions[0].claudeCodeSessionId);
+var selectedProjectName = projects[0].name;
+var selectedSessionId = sessions[0].claudeCodeSessionId;
+var screen = blessed.screen({ smartCSR: true, title: "Lazy StarForge (POC)" });
+var header = blessed.box({
+  parent: screen,
+  top: 0,
+  left: 0,
+  height: 1,
+  width: "100%",
+  tags: true,
+  content: "{bold}Lazy StarForge{/bold} (q quit, n new, j/k move, Enter Select, type below + Enter)"
+});
+var projectsList = blessed.list({
+  parent: screen,
+  top: 1,
+  left: 0,
+  width: "30%-1",
+  height: "30%",
+  border: "line",
+  label: "Projects ",
+  keys: true,
+  mouse: true,
+  vi: true,
+  style: { selected: { inverse: true } },
+  items: projects.map((project) => project.name)
+});
+var sessionsList = blessed.list({
+  parent: screen,
+  top: "30%",
+  left: 0,
+  width: "30%-1",
+  height: "30%",
+  border: "line",
+  label: "Sessions ",
+  keys: true,
+  mouse: true,
+  vi: true,
+  style: { selected: { inverse: true } },
+  items: sessions.map((s) => s.claudeCodeSessionId)
+});
+var transcript = blessed.box({
+  parent: screen,
+  top: 1,
+  left: "30%-1",
+  width: "70%+1",
+  height: "100%-4",
+  border: "line",
+  label: " Transcript ",
+  tags: true,
+  scrollable: true,
+  alwaysScroll: true,
+  keys: true,
+  mouse: true,
+  vi: true,
+  scrollbar: { ch: " ", style: { inverse: true } }
+});
+var input = blessed.textbox({
+  parent: screen,
+  bottom: 0,
+  left: 0,
+  width: "100%",
+  height: 3,
+  border: "line",
+  label: "Input ",
+  inputOnFocus: true,
+  keys: true,
+  mouse: true
+});
+function setTranscriptContent(messageThread) {
+  transcript.setContent(messageThread);
+  transcript.setScrollPerc(100);
+}
+async function refreshMessagesForSelectedSession() {
+  if (selectedSessionId === null) {
+    transcript.setContent("");
+    transcript.setScrollPerc(100);
+    return;
+  }
+  const messages = await ListMessagesUseCase.listMessages(selectedProjectName, selectedSessionId);
+  const messageThread = messages.reduce((acc, message2) => {
+    return acc.concat(message2.messenger + "\n" + message2.content + "\n\n");
+  }, "");
+  setTranscriptContent(messageThread);
+  screen.render();
+}
+function setSessionListFromSessions(list) {
+  if (list.length === 0) {
+    sessionsList.setItems(["(sessions)"]);
+    sessionsList.select(0);
+    sessionsList.style.fg = "gray";
+    selectedSessionId = null;
+    return;
+  }
+  sessionsList.setItems(list.map((s) => s.claudeCodeSessionId));
+  sessionsList.select(0);
+  sessionsList.style.fg = void 0;
+  selectedSessionId = list[0].claudeCodeSessionId;
+}
+async function refreshSessionsForSelectedProject() {
+  if (selectedSessionId === null) return;
+  const allSessions = await ListSessionsUseCase.ListSessions(selectedProjectName);
+  const filtered = allSessions.filter((s) => s.project.name === selectedProjectName);
+  setSessionListFromSessions(filtered);
+  screen.render();
+}
+projectsList.focus();
+projectsList.on("select item", async (item, index) => {
+  selectedProjectName = item.getText();
+  await refreshSessionsForSelectedProject();
+  await refreshMessagesForSelectedSession();
+});
+await refreshMessagesForSelectedSession();
+projectsList.key(["tab"], () => {
+  if (screen.focused === projectsList) sessionsList.focus();
+  else projectsList.focus();
+});
+sessionsList.key(["tab"], () => {
+  if (screen.focused === projectsList) sessionsList.focus();
+  else projectsList.focus();
+});
+sessionsList.on("select item", async (item, index) => {
+  selectedSessionId = item.getText();
+  await refreshMessagesForSelectedSession();
+  screen.render();
+});
+transcript.key("j", () => {
+  transcript.scroll(1);
+  screen.render();
+});
+transcript.key("k", () => {
+  transcript.scroll(-1);
+  screen.render();
+});
+transcript.key("tab", () => {
+  input.focus();
+  input.readInput();
+  screen.render();
+});
+input.on("submit", async (value) => {
+  const text = (value ?? "").trim();
+  input.clearValue();
+  if (!text) return;
+  if (selectedSessionId === null) return;
+  await createFollowupMessageUseCase.sendMessage(text, selectedProjectName, selectedSessionId);
+  await refreshMessagesForSelectedSession();
+  screen.render();
+});
+function focusPreviousFromInput() {
+  transcript.focus();
+  screen.render();
+}
+input.key(["S-tab", "backtab"], () => {
+  input.cancel();
+  focusPreviousFromInput();
+});
+function openNewSessionPrompt() {
+  const modal = blessed.box({
+    parent: screen,
+    top: "center",
+    left: "center",
+    width: "60%",
+    height: 7,
+    border: "line",
+    label: " New session ",
+    tags: true,
+    style: { border: { fg: "cyan" } }
+  });
+  blessed.box({
+    parent: modal,
+    top: 1,
+    left: 1,
+    height: 1,
+    content: "Enter initial message (Esc to cancel)"
+  });
+  const prompt = blessed.textbox({
+    parent: modal,
+    top: 3,
+    left: 1,
+    width: "100%-3",
+    height: 3,
+    border: "line",
+    inputOnFocus: true,
+    keys: true,
+    mouse: true
+  });
+  const close = () => {
+    prompt.cancel();
+    modal.detach();
+    sessionsList.focus();
+    screen.render();
+  };
+  prompt.key("escape", close);
+  prompt.on("submit", async (value) => {
+    const text = (value ?? "").trim();
+    if (!text) return close();
+    await CreateSessionUseCase.createSession(selectedProjectName, text);
+    await refreshSessionsForSelectedProject();
+    await refreshMessagesForSelectedSession();
+    close();
+  });
+  prompt.focus();
+  prompt.readInput();
+  screen.render();
+}
+sessionsList.key("n", () => {
+  openNewSessionPrompt();
+});
+function openNewProjectPrompt() {
+  const modal = blessed.box({
+    parent: screen,
+    top: "center",
+    left: "center",
+    width: "70%",
+    height: 11,
+    border: "line",
+    label: " New project ",
+    tags: true,
+    style: { border: { fg: "cyan " } }
+  });
+  blessed.box({
+    parent: modal,
+    top: 1,
+    left: 1,
+    height: 1,
+    content: "Project name:"
+  });
+  const nameInput = blessed.textbox({
+    parent: modal,
+    top: 2,
+    left: 1,
+    width: "100%-3",
+    height: 3,
+    border: "line",
+    inputOnFocus: true,
+    keys: true,
+    mouse: true
+  });
+  blessed.box({
+    parent: modal,
+    top: 5,
+    left: 1,
+    height: 1,
+    content: "Project path:"
+  });
+  const pathInput = blessed.textbox({
+    parent: modal,
+    top: 6,
+    left: 1,
+    width: "100%-3",
+    height: 3,
+    border: "line",
+    inputOnFocus: true,
+    keys: true,
+    mouse: true
+  });
+  const close = () => {
+    nameInput.cancel();
+    pathInput.cancel();
+    modal.detach();
+    projectsList.focus();
+    screen.render();
+  };
+  nameInput.key("escape", close);
+  pathInput.key("escape", close);
+  nameInput.on("submit", (value) => {
+    const name = (value ?? "").trim();
+    if (!name) return;
+    pathInput.focus();
+    pathInput.readInput();
+    screen.render();
+  });
+  pathInput.key(["S-tab", "backtab"], () => {
+    pathInput.cancel();
+    nameInput.focus();
+    nameInput.readInput();
+    screen.render();
+  });
+  pathInput.on("submit", async (value) => {
+    const name = (nameInput.getValue() ?? "").trim();
+    const p = (value ?? "").trim();
+    if (!name || !p) return close();
+    try {
+      await CreateProjectUseCase.createProject(name, p);
+      const updatedProjects = await ListProjectsUseCase.listProjects();
+      projectsList.setItems(updatedProjects.map((pr) => pr.name));
+      projectsList.select(0);
+      selectedProjectName = updatedProjects[0]?.name ?? selectedProjectName;
+      await refreshSessionsForSelectedProject();
+      await refreshMessagesForSelectedSession();
+    } finally {
+      close();
+    }
+  });
+  nameInput.focus();
+  nameInput.readInput();
+  screen.render();
+}
+projectsList.key("p", () => {
+  openNewProjectPrompt();
+});
+screen.key(["q", "C-c"], () => process.exit(0));
+screen.render();
 //# sourceMappingURL=index.js.map
