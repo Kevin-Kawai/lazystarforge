@@ -8,8 +8,6 @@ export type ClaudeEvent =
 
 export class ClaudeCodeGateway {
   static async *streamMessage(path: string, content: string, sessionId?: string): AsyncGenerator<ClaudeEvent> {
-    console.log("session id")
-    console.log(sessionId)
     for await (const message of query({
       prompt: content,
       options: {

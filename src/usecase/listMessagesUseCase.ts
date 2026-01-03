@@ -3,9 +3,6 @@ import { OrchestratorRepository } from "../repository/orchestratorRepository.ts"
 export class ListMessagesUseCase {
   static async listMesseges(sessionId: string) {
     const orchestrator = await OrchestratorRepository.find()
-    console.log("debug")
-    console.log(orchestrator.listSessions())
-    console.log(sessionId)
     const session = orchestrator.listSessions().find((session) => {
       return session.claudeCodeSessionId === sessionId
     })
