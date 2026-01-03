@@ -18,13 +18,13 @@ var Message = class {
 // src/gateway/ClaudeCodeGateway.ts
 import { query } from "@anthropic-ai/claude-agent-sdk";
 var ClaudeCodeGateway = class {
-  static async *streamMessage(path2, content, sessionId) {
+  static async *streamMessage(path3, content, sessionId) {
     console.log("session id");
     console.log(sessionId);
     for await (const message of query({
       prompt: content,
       options: {
-        cwd: path2,
+        cwd: path3,
         resume: sessionId
       }
     })) {
@@ -42,6 +42,8 @@ var ClaudeCodeGateway = class {
 
 // src/repository/orchestratorRepository.ts
 import { promises as fs2 } from "fs";
+import { readdir, readFile } from "fs/promises";
+import path2 from "path";
 
 // src/utils/normalizeCwd.ts
 import os from "os";
@@ -60,8 +62,8 @@ function normalizeCwd(p) {
 var Project = class {
   name;
   path;
-  constructor(path2, name) {
-    this.path = path2;
+  constructor(path3, name) {
+    this.path = path3;
     this.name = name;
   }
 };
@@ -92,15 +94,18 @@ var Session = class {
   project;
   claudeCodeSessionId;
   messages;
+  updated;
   constructor(status = "idle" /* IDLE */, worktree, project, claudeCodeSessionId, messages2 = []) {
     this.status = status;
     this.worktree = worktree;
     this.project = project;
     this.claudeCodeSessionId = claudeCodeSessionId;
     this.messages = messages2;
+    this.updated = false;
   }
   sendMessage(message) {
     this.messages.push(message);
+    this.updated = true;
   }
   manualTakeover() {
   }
@@ -208,24 +213,44 @@ var filePath = normalizeCwd("~/.lazystarforge/data");
 var OrchestratorRepository = class {
   static async find() {
     const rawProjects = await fs2.readFile(filePath + "/projects.json", "utf8");
-    const rawSessions = await fs2.readFile(filePath + "/sessions.json", "utf8");
+    const sessions2 = await this.readSessions();
     const projects2 = JSON.parse(rawProjects);
-    const sessions2 = JSON.parse(rawSessions);
     const orchestratorFactory = new OrchestratorFactory(projects2, sessions2);
     const orchestrator = orchestratorFactory.generate();
     return orchestrator;
   }
   static async save(orchestrator) {
     const projectsJson = await this.convertOrchestratorProjectsToJson(orchestrator.listProjects());
-    const sessionsJson = await this.convertOrchestratorSessionsToJson(orchestrator.listSessions());
     await fs2.writeFile(filePath + "/projects.json", projectsJson, "utf8");
-    await fs2.writeFile(filePath + "/sessions.json", sessionsJson, "utf8");
+    await this.persistSessions(orchestrator.listSessions());
   }
   static async convertOrchestratorProjectsToJson(projects2) {
     return JSON.stringify(projects2, null, 2);
   }
   static async convertOrchestratorSessionsToJson(sessions2) {
-    return JSON.stringify(sessions2, null, 2);
+    const sessionsToUpdate = sessions2.filter((session) => {
+      return session.updated === true;
+    });
+    return JSON.stringify(sessionsToUpdate, null, 2);
+  }
+  static async persistSessions(sessions2) {
+    console.log("sessionsssss");
+    console.log(sessions2);
+    sessions2.forEach(async (session) => {
+      const sessionJson = JSON.stringify(session, null, 2);
+      await fs2.writeFile(filePath + `/sessions/${session.claudeCodeSessionId}.json`, sessionJson, "utf8");
+    });
+  }
+  static async readSessions() {
+    const entries = await readdir(filePath + "/sessions", { withFileTypes: true });
+    const jsonFiles = entries.filter((e) => e.isFile() && e.name.toLowerCase().endsWith(".json")).map((e) => path2.join(filePath + "/sessions", e.name));
+    const results = await Promise.all(
+      jsonFiles.map(async (filePath2) => {
+        const text = await readFile(filePath2, "utf8");
+        return JSON.parse(text);
+      })
+    );
+    return results;
   }
 };
 

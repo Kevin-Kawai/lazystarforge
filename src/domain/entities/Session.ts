@@ -12,6 +12,7 @@ export interface ISession {
   project: IProject,
   messages: IMessage[],
   claudeCodeSessionId: string,
+  updated: boolean,
   sendMessage(message: IMessage): void,
   manualTakeover(): void
 }
@@ -22,6 +23,7 @@ export class Session implements ISession {
   project: IProject
   claudeCodeSessionId: string;
   messages: IMessage[]
+  updated: boolean
 
   constructor(status: ESessionStatus = ESessionStatus.IDLE, worktree: string, project: IProject, claudeCodeSessionId: string, messages: IMessage[] = []) {
     this.status = status
@@ -29,10 +31,12 @@ export class Session implements ISession {
     this.project = project
     this.claudeCodeSessionId = claudeCodeSessionId
     this.messages = messages
+    this.updated = false
   }
 
   sendMessage(message: IMessage): void {
     this.messages.push(message)
+    this.updated = true
   }
 
   manualTakeover(): void {
