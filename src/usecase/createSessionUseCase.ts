@@ -1,15 +1,18 @@
 import { ClaudeCodeGateway } from "../gateway/ClaudeCodeGateway.ts";
 import { ProjectRepository } from "../repository/projectRepository.ts";
+import { SessionRepository } from "../repository/sessionRepository.ts";
 
 export class CreateSessionUseCase {
   static async createSession(projectName: string, userMessage: string) {
     const project = await ProjectRepository.find(projectName)
 
     let initialMessage = true
+    let claudeCodeSessionId = null
     for await (const event of ClaudeCodeGateway.streamMessage(project.path, userMessage)) {
       if (event.type === "assistant_text") {
         if (initialMessage) {
-          project.startSession(event.sessionId, userMessage)
+          claudeCodeSessionId = event.sessionId
+          project.startSession(claudeCodeSessionId, userMessage)
           initialMessage = false
         }
 
@@ -17,6 +20,9 @@ export class CreateSessionUseCase {
       }
     }
 
+    const session = project.sessions.find(s => s.claudeCodeSessionId === claudeCodeSessionId)
+    if (session === undefined) throw new Error("invalid session")
+    await SessionRepository.save(session)
     await ProjectRepository.save(project)
   }
 }

@@ -1,5 +1,6 @@
 import { ClaudeCodeGateway } from "../gateway/ClaudeCodeGateway.ts";
 import { ProjectRepository } from "../repository/projectRepository.ts";
+import { SessionRepository } from "../repository/sessionRepository.ts";
 
 export class createFollowupMessageUseCase {
   static async sendMessage(userMessage: string, projectName: string, sessionId: string) {
@@ -12,6 +13,8 @@ export class createFollowupMessageUseCase {
       }
     }
 
-    await ProjectRepository.save(project)
+    const session = project.sessions.find(s => s.claudeCodeSessionId === sessionId)
+    if (session == undefined) throw new Error("invalid session")
+    await SessionRepository.save(session)
   }
 }

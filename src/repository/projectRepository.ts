@@ -1,4 +1,4 @@
-import { promises as fs, writeFile } from "node:fs"
+import { promises as fs } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { normalizeCwd } from "../utils/normalizeCwd.ts";
 import path from "node:path"
@@ -61,7 +61,7 @@ export class ProjectRepository {
     }
   }
 
-  static async save(project: IProject) {
+  static async saveWithSessions(project: IProject) {
     await fs.mkdir(filePath + "/sessions", { recursive: true })
     await fs.mkdir(filePath + "/projects", { recursive: true })
 
@@ -82,6 +82,13 @@ export class ProjectRepository {
       name: project.name,
       sessions: project.sessions.map(session => session.claudeCodeSessionId)
     }
+  }
+
+  static async save(project: IProject) {
+    await fs.mkdir(filePath + "/projects", { recursive: true })
+
+    const projectJson = JSON.stringify(await this.convertProjectToJson(project))
+    await fs.writeFile(filePath + `/projects/${project.name}.json`, projectJson, "utf8")
   }
 
   static async convertSessionToJson(session: ISession) {
