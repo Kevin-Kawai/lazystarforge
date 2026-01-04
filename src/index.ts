@@ -10,16 +10,13 @@ import { BackgroundJobs } from "./backgroundWorker/sessionJobManager.ts"
 
 const projects = await ListProjectsUseCase.listProjects()
 
-// Safe defaults for empty state
 let selectedProjectName: string | null = projects.length > 0 ? projects[0].name : null
 let selectedSessionId: string | null = null
 
-// Only fetch sessions if we have a project
 const sessions = selectedProjectName
   ? await ListSessionsUseCase.ListSessions(selectedProjectName)
   : []
 
-// Set selected session if sessions exist
 if (sessions.length > 0) {
   selectedSessionId = sessions[0].claudeCodeSessionId
 }
@@ -102,7 +99,6 @@ const input = blessed.textbox({
   mouse: true
 })
 
-// Set initial transcript content for empty state
 if (projects.length === 0) {
   transcript.setContent(
     "{center}{bold}Welcome to Lazy StarForge!{/bold}{/center}\n\n" +
@@ -177,7 +173,6 @@ projectsList.focus()
 projectsList.on("select item", async (item, index) => {
   const itemText = item.getText()
 
-  // Ignore if it's the placeholder text
   if (itemText.includes("no projects") || projects.length === 0) {
     return
   }
@@ -202,7 +197,6 @@ sessionsList.key(["tab"], () => {
 sessionsList.on("select item", async (item, index) => {
   const itemText = item.getText()
 
-  // Ignore if it's the placeholder text
   if (itemText.includes("no sessions") || sessions.length === 0) {
     selectedSessionId = null
     await refreshMessagesForSelectedSession()
@@ -258,9 +252,6 @@ input.on("submit", async (value: string) => {
   })
 
   void refreshSelectedSessionDebounce()
-  // await createFollowupMessageUseCase.sendMessage(text, selectedProjectName, selectedSessionId)
-  // await refreshMessagesForSelectedSession()
-  // screen.render()
 })
 
 function focusPreviousFromInput() {
@@ -274,7 +265,6 @@ input.key(["S-tab", "backtab"], () => {
 })
 
 function openNewSessionPrompt() {
-  // Prevent creating session without a project
   if (selectedProjectName === null) {
     const errorModal = blessed.box({
       parent: screen,
@@ -344,10 +334,6 @@ function openNewSessionPrompt() {
   prompt.on("submit", async (value: string) => {
     const text = (value ?? "").trim()
     if (!text) return close()
-    // await CreateSessionUseCase.createSession(selectedProjectName, text)
-
-    // await refreshSessionsForSelectedProject()
-    // await refreshMessagesForSelectedSession()
     BackgroundJobs.startNesSession({
       projectName: selectedProjectName!,
       initialMessage: text

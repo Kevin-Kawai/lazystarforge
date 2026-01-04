@@ -37,7 +37,6 @@ export class ProjectRepository {
 
       return results
     } catch (error: any) {
-      // If directory doesn't exist or is empty, return empty array
       if (error.code === 'ENOENT') {
         return []
       }
@@ -68,7 +67,6 @@ export class ProjectRepository {
         const text = await fs.readFile(filePath + `/sessions/${sessionId}.json`, "utf8")
         return JSON.parse(text)
       } catch (error: any) {
-        // Log warning for orphaned session reference
         if (error.code === 'ENOENT') {
           console.warn(`Warning: Session file not found for ID: ${sessionId}`)
           return null
@@ -79,7 +77,6 @@ export class ProjectRepository {
 
     const sessionResults = await Promise.all(sessionPromises)
 
-    // Filter out null values (orphaned sessions)
     const sessions = sessionResults.filter(s => s !== null)
 
     return {

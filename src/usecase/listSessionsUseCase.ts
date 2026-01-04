@@ -6,7 +6,6 @@ export class ListSessionsUseCase {
       const project = await ProjectRepository.find(projectName)
       return project.sessions
     } catch (error: any) {
-      // If project doesn't exist, return empty sessions array
       if (error.message?.includes('Project not found')) {
         return []
       }
