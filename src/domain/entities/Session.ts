@@ -8,7 +8,6 @@ export enum ESessionStatus {
 
 export interface ISession {
   status: ESessionStatus,
-  updated: boolean,
   project: IProject,
   messages: IMessage[],
   claudeCodeSessionId: string,
@@ -18,7 +17,6 @@ export interface ISession {
 
 export class Session implements ISession {
   status: ESessionStatus
-  updated: boolean
   project: IProject
   messages: IMessage[]
   claudeCodeSessionId: string;
@@ -28,7 +26,6 @@ export class Session implements ISession {
     this.project = project
     this.claudeCodeSessionId = claudeCodeSessionId
     this.messages = messages
-    this.updated = false
   }
 
   sendUserMessage(content: string): void {

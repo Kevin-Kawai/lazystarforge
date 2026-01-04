@@ -88,7 +88,6 @@ export class ProjectRepository {
     return {
       claudeCodeSessionId: session.claudeCodeSessionId,
       status: session.status,
-      updated: session.updated,
       project: session.project.name,
       messages: session.messages.map(message => ({
         messenger: message.messenger,

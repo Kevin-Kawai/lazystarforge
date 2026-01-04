@@ -21,8 +21,6 @@ export class ProjectFactory {
         }) ?? []
       )
 
-      session.updated = Boolean(sessionJson["updated"])
-
       return session
     })
 
