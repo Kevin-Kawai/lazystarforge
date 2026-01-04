@@ -4,10 +4,11 @@ import blessed from "neo-blessed"
 import { ListProjectsUseCase } from "./usecase/listProjectsUseCase.ts"
 import { ListSessionsUseCase } from "./usecase/listSessionsUseCase.ts"
 import { ListMessagesUseCase } from "./usecase/listMessagesUseCase.ts"
-import { CreateSessionUseCase } from "./usecase/createSessionUseCase.ts"
 import { CreateProjectUseCase } from "./usecase/createProjectUseCase.ts"
 import { DeleteSessionUseCase } from "./usecase/deleteSessionUseCase.ts"
 import { BackgroundJobs } from "./backgroundWorker/sessionJobManager.ts"
+
+await CreateProjectUseCase.createProject('test', '~/Projects/jbeat-games/')
 
 const projects = await ListProjectsUseCase.listProjects()
 
@@ -388,9 +389,9 @@ sessionsList.key("d", async () => {
     screen.render()
   }
 
-  screen.onceKey(["y"], async () => {
+  screen.onceKey("y", async () => {
     try {
-      await DeleteSessionUseCase.DeleteSession(selectedProjectName, selectedSessionId!)
+      await DeleteSessionUseCase.DeleteSession(selectedProjectName!, selectedSessionId!)
       await refreshSessionsForSelectedProject()
       await refreshMessagesForSelectedSession()
     } finally {
@@ -398,7 +399,7 @@ sessionsList.key("d", async () => {
     }
   })
 
-  screen.onceKey(["escape", "n", "q"], close)
+  screen.key(["escape", "n", "q"], close)
 
   screen.render()
 })
