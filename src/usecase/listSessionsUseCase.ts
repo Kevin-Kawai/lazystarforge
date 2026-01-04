@@ -2,7 +2,14 @@ import { ProjectRepository } from "../repository/projectRepository.ts";
 
 export class ListSessionsUseCase {
   static async ListSessions(projectName: string) {
-    const project = await ProjectRepository.find(projectName)
-    return project.sessions
+    try {
+      const project = await ProjectRepository.find(projectName)
+      return project.sessions
+    } catch (error: any) {
+      if (error.message?.includes('Project not found')) {
+        return []
+      }
+      throw error
+    }
   }
 }
