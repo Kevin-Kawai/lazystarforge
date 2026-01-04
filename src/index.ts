@@ -6,12 +6,13 @@ import { ListSessionsUseCase } from "./usecase/listSessionsUseCase.ts"
 import { ListMessagesUseCase } from "./usecase/listMessagesUseCase.ts"
 import { CreateProjectUseCase } from "./usecase/createProjectUseCase.ts"
 import { DeleteSessionUseCase } from "./usecase/deleteSessionUseCase.ts"
-import { BackgroundJobs } from "./backgroundWorker/sessionJobManager.ts"
+import { BackgroundJobs, type JobStatus, type JobEvent } from "./backgroundWorker/sessionJobManager.ts"
 
 const projects = await ListProjectsUseCase.listProjects()
 
 let selectedProjectName: string | null = projects.length > 0 ? projects[0].name : null
 let selectedSessionId: string | null = null
+const statusBySession = new Map<string, JobStatus>()
 
 const sessions = selectedProjectName
   ? await ListSessionsUseCase.ListSessions(selectedProjectName)
@@ -65,7 +66,7 @@ const sessionsList = blessed.list({
   tags: true,
   style: { selected: { inverse: true } },
   items: sessions.length > 0
-    ? sessions.map((s) => s.claudeCodeSessionId)
+    ? concatSessionStatusToId(sessions)
     : ["{gray-fg}(no sessions - press 'n' to create){/gray-fg}"]
 })
 
@@ -149,10 +150,22 @@ function setSessionListFromSessions(list: typeof sessions) {
     return
   }
 
-  sessionsList.setItems(list.map(s => s.claudeCodeSessionId))
+  sessionsList.setItems(concatSessionStatusToId(list))
+
   sessionsList.select(0)
   sessionsList.style.fg = undefined as any
   selectedSessionId = list[0].claudeCodeSessionId
+}
+
+function concatSessionStatusToId(list: typeof sessions) {
+  return list.map((session) => {
+    const status = statusBySession.get(session.claudeCodeSessionId)
+    const suffix =
+      status === "running" ? " [runnning]" :
+        status === "error" ? " [error]" : " [idle]"
+
+    return `${session.claudeCodeSessionId}${suffix}`
+  })
 }
 
 async function refreshSessionsForSelectedProject() {
@@ -334,7 +347,7 @@ function openNewSessionPrompt() {
   prompt.on("submit", async (value: string) => {
     const text = (value ?? "").trim()
     if (!text) return close()
-    BackgroundJobs.startNesSession({
+    BackgroundJobs.startNewSession({
       projectName: selectedProjectName!,
       initialMessage: text
     })
@@ -532,7 +545,18 @@ async function refreshSelectedSessionDebounce() {
   }
 }
 
-BackgroundJobs.on("event", (e: any) => {
+BackgroundJobs.on("event", (e: JobEvent) => {
+  if (e.type === "session_status") {
+    statusBySession.set(e.sessionId, e.status)
+
+    void refreshSessionsForSelectedProject()
+
+    if (e.projectName === selectedProjectName && e.sessionId === selectedSessionId) {
+      void refreshSelectedSessionDebounce()
+    }
+    return
+  }
+
   if (e.type === "session_changed") {
     if (e.projectName === selectedProjectName) {
       void refreshSessionsForSelectedProject()

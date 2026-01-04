@@ -1,14 +1,12 @@
 import { EventEmitter } from "node:events"
 import { ProjectRepository } from "../repository/projectRepository.ts";
 import { ClaudeCodeGateway } from "../gateway/ClaudeCodeGateway.ts";
-import type { IProject } from "../domain/entities/Project.ts";
 import { SessionRepository } from "../repository/sessionRepository.ts";
 import { Session, type ISession } from "../domain/entities/Session.ts";
-import { create } from "node:domain";
 
-type JobStatus = "running" | "idle" | "error"
+export type JobStatus = "running" | "idle" | "error"
 
-type JobEvent =
+export type JobEvent =
   | { type: "session_updated"; projectName: string; sessionId: string }
   | { type: "session_status"; projectName: string; sessionId: string; status: JobStatus }
   | { type: "session_changed"; projectName: string }
@@ -24,7 +22,7 @@ class SessionJobManager extends EventEmitter {
     void this.run(args).finally(() => this.running.delete(key))
   }
 
-  startNesSession(args: { projectName: string; initialMessage: string }) {
+  startNewSession(args: { projectName: string; initialMessage: string }) {
     const key = `${args.projectName}:__create_sessions__`
     if (this.running.has(key)) return
     this.running.add(key)
