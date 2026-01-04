@@ -6,6 +6,7 @@ export interface IProject {
   path: string
   sessions: ISession[]
   startSession(claudeCodeSessionId: string, message: string): void
+  addSession(session: ISession): void
   sendUserMessage(content: string, sessionId: string): void
   sendAssistantMessage(content: string, sessionId: string): void
   viewMessages(sessionId: string): IMessage[]
@@ -25,6 +26,10 @@ export class Project implements IProject {
   startSession(claudeCodeSessionId: string, message: string): void {
     const session = new Session(this, claudeCodeSessionId, ESessionStatus.IDLE)
     session.sendUserMessage(message)
+    this.sessions.push(session)
+  }
+
+  addSession(session: ISession): void {
     this.sessions.push(session)
   }
 

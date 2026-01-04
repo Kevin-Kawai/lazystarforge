@@ -4,13 +4,12 @@ import blessed from "neo-blessed"
 import { ListProjectsUseCase } from "./usecase/listProjectsUseCase.ts"
 import { ListSessionsUseCase } from "./usecase/listSessionsUseCase.ts"
 import { ListMessagesUseCase } from "./usecase/listMessagesUseCase.ts"
-import { createFollowupMessageUseCase } from "./usecase/createFollowupMessageUseCase.ts"
 import { CreateSessionUseCase } from "./usecase/createSessionUseCase.ts"
 import { CreateProjectUseCase } from "./usecase/createProjectUseCase.ts"
+import { BackgroundJobs } from "./backgroundWorker/sessionJobManager.ts"
 
 const projects = await ListProjectsUseCase.listProjects()
 const sessions = await ListSessionsUseCase.ListSessions(projects[0].name)
-const message = await ListMessagesUseCase.listMessages(projects[0].name, sessions[0].claudeCodeSessionId)
 
 let selectedProjectName: string = projects[0].name
 let selectedSessionId: string | null = sessions[0].claudeCodeSessionId
@@ -188,9 +187,16 @@ input.on("submit", async (value: string) => {
   if (!text) return
 
   if (selectedSessionId === null) return
-  await createFollowupMessageUseCase.sendMessage(text, selectedProjectName, selectedSessionId)
-  await refreshMessagesForSelectedSession()
-  screen.render()
+  BackgroundJobs.startFollowupMessage({
+    projectName: selectedProjectName,
+    sessionId: selectedSessionId,
+    content: text
+  })
+
+  void refreshSelectedSessionDebounce()
+  // await createFollowupMessageUseCase.sendMessage(text, selectedProjectName, selectedSessionId)
+  // await refreshMessagesForSelectedSession()
+  // screen.render()
 })
 
 function focusPreviousFromInput() {
@@ -248,10 +254,14 @@ function openNewSessionPrompt() {
   prompt.on("submit", async (value: string) => {
     const text = (value ?? "").trim()
     if (!text) return close()
-    await CreateSessionUseCase.createSession(selectedProjectName, text)
+    // await CreateSessionUseCase.createSession(selectedProjectName, text)
 
-    await refreshSessionsForSelectedProject()
-    await refreshMessagesForSelectedSession()
+    // await refreshSessionsForSelectedProject()
+    // await refreshMessagesForSelectedSession()
+    BackgroundJobs.startNesSession({
+      projectName: selectedProjectName,
+      initialMessage: text
+    })
     close()
   })
 
@@ -366,6 +376,44 @@ function openNewProjectPrompt() {
   nameInput.readInput()
   screen.render()
 }
+
+let refreshInFlight: Promise<void> | null = null
+let refreshQueued = false
+
+async function refreshSelectedSessionDebounce() {
+  if (refreshInFlight) {
+    refreshQueued = true
+    return
+  }
+
+  refreshInFlight = (async () => {
+    await refreshMessagesForSelectedSession()
+  })()
+
+  try {
+    await refreshInFlight
+  } finally {
+    refreshInFlight = null
+    if (refreshQueued) {
+      refreshQueued = false
+      void refreshSelectedSessionDebounce()
+    }
+  }
+}
+
+BackgroundJobs.on("event", (e: any) => {
+  if (e.type === "session_changed") {
+    if (e.projectName === selectedProjectName) {
+      void refreshSessionsForSelectedProject()
+    }
+  }
+
+  if (e.type === "session_updated") {
+    if (e.projectName === selectedProjectName && e.sessionId === selectedSessionId) {
+      void refreshSelectedSessionDebounce()
+    }
+  }
+})
 
 projectsList.key("p", () => {
   openNewProjectPrompt()
