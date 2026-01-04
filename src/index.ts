@@ -177,6 +177,11 @@ transcript.key("tab", () => {
   screen.render()
 })
 
+transcript.key("S-tab", () => {
+  sessionsList.focus()
+  screen.render()
+})
+
 input.on("submit", async (value: string) => {
   const text = (value ?? "").trim()
   input.clearValue()
@@ -322,7 +327,6 @@ function openNewProjectPrompt() {
   nameInput.key("escape", close)
   pathInput.key("escape", close)
 
-  // Enter on name -> go to path
   nameInput.on("submit", (value: string) => {
     const name = (value ?? "").trim()
     if (!name) return
@@ -331,7 +335,6 @@ function openNewProjectPrompt() {
     screen.render()
   })
 
-  // Optional: Shift-Tab from path -> back to name
   pathInput.key(["S-tab", "backtab"], () => {
     pathInput.cancel()
     nameInput.focus()
@@ -347,12 +350,10 @@ function openNewProjectPrompt() {
     try {
       await CreateProjectUseCase.createProject(name, p)
 
-      // Refresh projects list UI
       const updatedProjects = await ListProjectsUseCase.listProjects()
       projectsList.setItems(updatedProjects.map(pr => pr.name))
       projectsList.select(0)
 
-      // Update local state (and optionally reload sessions/messages)
       selectedProjectName = updatedProjects[0]?.name ?? selectedProjectName
       await refreshSessionsForSelectedProject()
       await refreshMessagesForSelectedSession()
@@ -368,6 +369,11 @@ function openNewProjectPrompt() {
 
 projectsList.key("p", () => {
   openNewProjectPrompt()
+})
+
+sessionsList.key("enter", () => {
+  transcript.focus()
+  screen.render()
 })
 
 screen.key(["q", "C-c"], () => process.exit(0))
