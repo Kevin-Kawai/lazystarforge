@@ -11,6 +11,8 @@ export class ClaudeCodeGateway {
     for await (const message of query({
       prompt: content,
       options: {
+        allowedTools: ["Read", "Edit", "Glob"],
+        permissionMode: "acceptEdits",
         cwd: path,
         resume: sessionId
       }
