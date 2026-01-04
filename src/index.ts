@@ -8,8 +8,6 @@ import { CreateProjectUseCase } from "./usecase/createProjectUseCase.ts"
 import { DeleteSessionUseCase } from "./usecase/deleteSessionUseCase.ts"
 import { BackgroundJobs } from "./backgroundWorker/sessionJobManager.ts"
 
-await CreateProjectUseCase.createProject('test', '~/Projects/jbeat-games/')
-
 const projects = await ListProjectsUseCase.listProjects()
 
 let selectedProjectName: string | null = projects.length > 0 ? projects[0].name : null
