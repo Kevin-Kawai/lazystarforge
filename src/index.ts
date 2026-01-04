@@ -6,6 +6,7 @@ import { ListSessionsUseCase } from "./usecase/listSessionsUseCase.ts"
 import { ListMessagesUseCase } from "./usecase/listMessagesUseCase.ts"
 import { CreateSessionUseCase } from "./usecase/createSessionUseCase.ts"
 import { CreateProjectUseCase } from "./usecase/createProjectUseCase.ts"
+import { DeleteSessionUseCase } from "./usecase/deleteSessionUseCase.ts"
 import { BackgroundJobs } from "./backgroundWorker/sessionJobManager.ts"
 
 const projects = await ListProjectsUseCase.listProjects()
@@ -23,7 +24,7 @@ const header = blessed.box({
   height: 1,
   width: "100%",
   tags: true,
-  content: "{bold}Lazy StarForge{/bold} (q quit, n new, j/k move, Enter Select, type below + Enter)"
+  content: "{bold}Lazy StarForge{/bold} (q quit, n new, d delete, j/k move, Enter Select, type below + Enter)"
 })
 
 const projectsList = blessed.list({
@@ -272,6 +273,58 @@ function openNewSessionPrompt() {
 
 sessionsList.key("n", () => {
   openNewSessionPrompt()
+})
+
+sessionsList.key("d", async () => {
+  if (selectedSessionId === null) return
+
+  const confirmModal = blessed.box({
+    parent: screen,
+    top: "center",
+    left: "center",
+    width: "50%",
+    height: 7,
+    border: "line",
+    label: " Confirm Delete ",
+    tags: true,
+    style: { border: { fg: "red" } }
+  })
+
+  blessed.box({
+    parent: confirmModal,
+    top: 1,
+    left: 1,
+    height: 1,
+    content: `Delete session ${selectedSessionId}?`
+  })
+
+  blessed.box({
+    parent: confirmModal,
+    top: 3,
+    left: 1,
+    height: 1,
+    content: "Press 'y' to confirm, any other key to cancel"
+  })
+
+  const close = () => {
+    confirmModal.detach()
+    sessionsList.focus()
+    screen.render()
+  }
+
+  screen.onceKey(["y"], async () => {
+    try {
+      await DeleteSessionUseCase.DeleteSession(selectedProjectName, selectedSessionId!)
+      await refreshSessionsForSelectedProject()
+      await refreshMessagesForSelectedSession()
+    } finally {
+      close()
+    }
+  })
+
+  screen.onceKey(["escape", "n", "q"], close)
+
+  screen.render()
 })
 
 function openNewProjectPrompt() {

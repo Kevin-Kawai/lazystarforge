@@ -7,6 +7,7 @@ export interface IProject {
   sessions: ISession[]
   startSession(claudeCodeSessionId: string, message: string): void
   addSession(session: ISession): void
+  deleteSession(sessionId: string): void
   sendUserMessage(content: string, sessionId: string): void
   sendAssistantMessage(content: string, sessionId: string): void
   viewMessages(sessionId: string): IMessage[]
@@ -31,6 +32,16 @@ export class Project implements IProject {
 
   addSession(session: ISession): void {
     this.sessions.push(session)
+  }
+
+  deleteSession(sessionId: string): void {
+    const index = this.sessions.findIndex((session) => {
+      return session.claudeCodeSessionId === sessionId
+    })
+
+    if (index !== -1) {
+      this.sessions.splice(index, 1)
+    }
   }
 
   sendUserMessage(content: string, sessionId: string): void {

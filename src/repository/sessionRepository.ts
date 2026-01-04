@@ -22,6 +22,10 @@ export class SessionRepository {
     return session
   }
 
+  static async delete(sessionId: string) {
+    await fs.unlink(filePath + `/sessions/${sessionId}.json`)
+  }
+
   static async retrieveProject(session: any) {
     const projectJson = await fs.readFile(filePath + `/projects/${session["project"]}.json`, "utf8")
     const project = JSON.parse(projectJson)
