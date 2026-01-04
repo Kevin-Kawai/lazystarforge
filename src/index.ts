@@ -4,15 +4,15 @@ import blessed from "neo-blessed"
 import { ListProjectsUseCase } from "./usecase/listProjectsUseCase.ts"
 import { ListSessionsUseCase } from "./usecase/listSessionsUseCase.ts"
 import { ListMessagesUseCase } from "./usecase/listMessagesUseCase.ts"
-import { CreateSessionUseCase } from "./usecase/createSessionUseCase.ts"
 import { CreateProjectUseCase } from "./usecase/createProjectUseCase.ts"
-import { BackgroundJobs } from "./backgroundWorker/sessionJobManager.ts"
+import { BackgroundJobs, type JobStatus, type JobEvent } from "./backgroundWorker/sessionJobManager.ts"
 
 const projects = await ListProjectsUseCase.listProjects()
 const sessions = await ListSessionsUseCase.ListSessions(projects[0].name)
 
 let selectedProjectName: string = projects[0].name
 let selectedSessionId: string | null = sessions[0].claudeCodeSessionId
+const statusBySessions = new Map<string, JobStatus>()
 
 const screen = blessed.screen({ smartCSR: true, title: "Lazy StarForge (POC)" })
 
@@ -116,7 +116,16 @@ function setSessionListFromSessions(list: typeof sessions) {
     return
   }
 
-  sessionsList.setItems(list.map(s => s.claudeCodeSessionId))
+  // sessionsList.setItems(list.map(s => s.claudeCodeSessionId))
+  sessionsList.setItems(list.map((session) => {
+    const st = statusBySessions.get(session.claudeCodeSessionId)
+    const suffix =
+      st === "running" ? " [⏳]" :
+        st === "error" ? " [!]" :
+          ""
+    return `${session.claudeCodeSessionId}${suffix}`
+  }))
+
   sessionsList.select(0)
   sessionsList.style.fg = undefined as any
   selectedSessionId = list[0].claudeCodeSessionId
@@ -194,9 +203,6 @@ input.on("submit", async (value: string) => {
   })
 
   void refreshSelectedSessionDebounce()
-  // await createFollowupMessageUseCase.sendMessage(text, selectedProjectName, selectedSessionId)
-  // await refreshMessagesForSelectedSession()
-  // screen.render()
 })
 
 function focusPreviousFromInput() {
@@ -254,11 +260,7 @@ function openNewSessionPrompt() {
   prompt.on("submit", async (value: string) => {
     const text = (value ?? "").trim()
     if (!text) return close()
-    // await CreateSessionUseCase.createSession(selectedProjectName, text)
-
-    // await refreshSessionsForSelectedProject()
-    // await refreshMessagesForSelectedSession()
-    BackgroundJobs.startNesSession({
+    BackgroundJobs.startNewSession({
       projectName: selectedProjectName,
       initialMessage: text
     })
@@ -401,7 +403,18 @@ async function refreshSelectedSessionDebounce() {
   }
 }
 
-BackgroundJobs.on("event", (e: any) => {
+BackgroundJobs.on("event", (e: JobEvent) => {
+  if (e.type === "session_status") {
+    statusBySessions.set(e.sessionId, e.status)
+
+    void refreshSessionsForSelectedProject()
+
+    if (e.projectName === selectedProjectName && e.sessionId === selectedSessionId) {
+      void refreshSelectedSessionDebounce()
+    }
+    return
+  }
+
   if (e.type === "session_changed") {
     if (e.projectName === selectedProjectName) {
       void refreshSessionsForSelectedProject()
