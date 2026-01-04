@@ -1,9 +1,9 @@
 import { promises as fs } from "node:fs"
 import type { ISession } from "../domain/entities/Session.ts";
-import { normalizeCwd } from "../utils/normalizeCwd.ts";
 import { SessionFactory } from "../factory/sessionFactory.ts";
+import { getDataPath } from "../utils/ensureDataDirectories.ts"
 
-const filePath = normalizeCwd("~/.lazystarforge/data")
+const filePath = getDataPath()
 
 export class SessionRepository {
   static async save(session: ISession) {
@@ -13,13 +13,20 @@ export class SessionRepository {
   }
 
   static async find(sessionId: string) {
-    const rawSession = await fs.readFile(filePath + `/sessions/${sessionId}.json`, "utf8")
-    const parsedSession = JSON.parse(rawSession)
-    const sessionJson = await this.retrieveProject(parsedSession)
+    try {
+      const rawSession = await fs.readFile(filePath + `/sessions/${sessionId}.json`, "utf8")
+      const parsedSession = JSON.parse(rawSession)
+      const sessionJson = await this.retrieveProject(parsedSession)
 
-    const sessionFactory = new SessionFactory(sessionJson)
-    const session = sessionFactory.generate()
-    return session
+      const sessionFactory = new SessionFactory(sessionJson)
+      const session = sessionFactory.generate()
+      return session
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        throw new Error(`Session not found: ${sessionId}`)
+      }
+      throw error
+    }
   }
 
   static async retrieveProject(session: any) {
