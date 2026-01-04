@@ -9,10 +9,20 @@ import { CreateProjectUseCase } from "./usecase/createProjectUseCase.ts"
 import { BackgroundJobs } from "./backgroundWorker/sessionJobManager.ts"
 
 const projects = await ListProjectsUseCase.listProjects()
-const sessions = await ListSessionsUseCase.ListSessions(projects[0].name)
 
-let selectedProjectName: string = projects[0].name
-let selectedSessionId: string | null = sessions[0].claudeCodeSessionId
+// Safe defaults for empty state
+let selectedProjectName: string | null = projects.length > 0 ? projects[0].name : null
+let selectedSessionId: string | null = null
+
+// Only fetch sessions if we have a project
+const sessions = selectedProjectName
+  ? await ListSessionsUseCase.ListSessions(selectedProjectName)
+  : []
+
+// Set selected session if sessions exist
+if (sessions.length > 0) {
+  selectedSessionId = sessions[0].claudeCodeSessionId
+}
 
 const screen = blessed.screen({ smartCSR: true, title: "Lazy StarForge (POC)" })
 
@@ -37,8 +47,11 @@ const projectsList = blessed.list({
   keys: true,
   mouse: true,
   vi: true,
+  tags: true,
   style: { selected: { inverse: true } },
-  items: projects.map((project) => project.name)
+  items: projects.length > 0
+    ? projects.map((project) => project.name)
+    : ["{gray-fg}(no projects - press 'p' to create){/gray-fg}"]
 })
 
 const sessionsList = blessed.list({
@@ -52,8 +65,11 @@ const sessionsList = blessed.list({
   keys: true,
   mouse: true,
   vi: true,
+  tags: true,
   style: { selected: { inverse: true } },
-  items: sessions.map((s) => s.claudeCodeSessionId)
+  items: sessions.length > 0
+    ? sessions.map((s) => s.claudeCodeSessionId)
+    : ["{gray-fg}(no sessions - press 'n' to create){/gray-fg}"]
 })
 
 const transcript = blessed.box({
@@ -86,13 +102,34 @@ const input = blessed.textbox({
   mouse: true
 })
 
+// Set initial transcript content for empty state
+if (projects.length === 0) {
+  transcript.setContent(
+    "{center}{bold}Welcome to Lazy StarForge!{/bold}{/center}\n\n" +
+    "You don't have any projects yet.\n\n" +
+    "{bold}Getting Started:{/bold}\n" +
+    "1. Press {cyan-fg}'p'{/cyan-fg} to create a new project\n" +
+    "2. Press {cyan-fg}'n'{/cyan-fg} to create a new session\n" +
+    "3. Start chatting!\n\n" +
+    "{bold}Navigation:{/bold}\n" +
+    "- {cyan-fg}j/k{/cyan-fg} or arrows to move\n" +
+    "- {cyan-fg}Tab{/cyan-fg} to switch panels\n" +
+    "- {cyan-fg}q{/cyan-fg} to quit"
+  )
+} else if (selectedSessionId === null) {
+  transcript.setContent(
+    "{center}No session selected{/center}\n\n" +
+    "Press {cyan-fg}'n'{/cyan-fg} to create a new session."
+  )
+}
+
 function setTranscriptContent(messageThread: string) {
   transcript.setContent(messageThread)
   transcript.setScrollPerc(100)
 }
 
 async function refreshMessagesForSelectedSession() {
-  if (selectedSessionId === null) {
+  if (selectedSessionId === null || selectedProjectName === null) {
     transcript.setContent("")
     transcript.setScrollPerc(100)
     return
@@ -123,7 +160,10 @@ function setSessionListFromSessions(list: typeof sessions) {
 }
 
 async function refreshSessionsForSelectedProject() {
-  if (selectedSessionId === null) return
+  if (selectedProjectName === null) {
+    setSessionListFromSessions([])
+    return
+  }
   const allSessions = await ListSessionsUseCase.ListSessions(selectedProjectName)
 
   const filtered = allSessions.filter((s) => s.project.name === selectedProjectName)
@@ -135,7 +175,14 @@ async function refreshSessionsForSelectedProject() {
 projectsList.focus()
 
 projectsList.on("select item", async (item, index) => {
-  selectedProjectName = item.getText()
+  const itemText = item.getText()
+
+  // Ignore if it's the placeholder text
+  if (itemText.includes("no projects") || projects.length === 0) {
+    return
+  }
+
+  selectedProjectName = itemText
   await refreshSessionsForSelectedProject()
   await refreshMessagesForSelectedSession()
 })
@@ -153,7 +200,16 @@ sessionsList.key(["tab"], () => {
 })
 
 sessionsList.on("select item", async (item, index) => {
-  selectedSessionId = item.getText()
+  const itemText = item.getText()
+
+  // Ignore if it's the placeholder text
+  if (itemText.includes("no sessions") || sessions.length === 0) {
+    selectedSessionId = null
+    await refreshMessagesForSelectedSession()
+    return
+  }
+
+  selectedSessionId = itemText
 
   await refreshMessagesForSelectedSession()
 
@@ -186,9 +242,17 @@ input.on("submit", async (value: string) => {
   input.clearValue()
   if (!text) return
 
-  if (selectedSessionId === null) return
+  if (selectedSessionId === null) {
+    transcript.setContent(
+      "{center}{red-fg}No session selected{/red-fg}{/center}\n\n" +
+      "Press {cyan-fg}'n'{/cyan-fg} to create a new session first."
+    )
+    screen.render()
+    return
+  }
+
   BackgroundJobs.startFollowupMessage({
-    projectName: selectedProjectName,
+    projectName: selectedProjectName!,
     sessionId: selectedSessionId,
     content: text
   })
@@ -210,6 +274,32 @@ input.key(["S-tab", "backtab"], () => {
 })
 
 function openNewSessionPrompt() {
+  // Prevent creating session without a project
+  if (selectedProjectName === null) {
+    const errorModal = blessed.box({
+      parent: screen,
+      top: "center",
+      left: "center",
+      width: 50,
+      height: 5,
+      border: "line",
+      label: " Error ",
+      tags: true,
+      content: "\n{center}Please create a project first (press 'p'){/center}",
+      style: { border: { fg: "red" } }
+    })
+
+    errorModal.key(["enter", "escape"], () => {
+      errorModal.detach()
+      projectsList.focus()
+      screen.render()
+    })
+
+    errorModal.focus()
+    screen.render()
+    return
+  }
+
   const modal = blessed.box({
     parent: screen,
     top: "center",
@@ -259,7 +349,7 @@ function openNewSessionPrompt() {
     // await refreshSessionsForSelectedProject()
     // await refreshMessagesForSelectedSession()
     BackgroundJobs.startNesSession({
-      projectName: selectedProjectName,
+      projectName: selectedProjectName!,
       initialMessage: text
     })
     close()
@@ -364,9 +454,12 @@ function openNewProjectPrompt() {
       projectsList.setItems(updatedProjects.map(pr => pr.name))
       projectsList.select(0)
 
-      selectedProjectName = updatedProjects[0]?.name ?? selectedProjectName
-      await refreshSessionsForSelectedProject()
-      await refreshMessagesForSelectedSession()
+      selectedProjectName = updatedProjects[0]?.name ?? null
+
+      if (selectedProjectName) {
+        await refreshSessionsForSelectedProject()
+        await refreshMessagesForSelectedSession()
+      }
     } finally {
       close()
     }
