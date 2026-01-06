@@ -57,7 +57,8 @@ export async function initializeApp() {
   }
 
   // Create screen
-  const screen = blessed.screen({ title: "Lazy StarForge (POC)" })
+  process.env.TERM = "xterm-256color"
+  const screen = blessed.screen({ smartCSR: true, title: "Lazy StarForge (POC)" })
 
   // Create UI components
   const header = createHeader(screen)
