@@ -11,7 +11,13 @@ export class ClaudeCodeGateway {
     for await (const message of query({
       prompt: content,
       options: {
-        allowedTools: ["Read", "Edit", "Glob"],
+        mcpServers: {
+          notion: {
+            command: "npx",
+            args: ["-y", "mcp-remote", "https://mcp.notion.com/mcp"]
+          }
+        },
+        allowedTools: ["Read", "Edit", "Glob", "mcp__notion__notion-search", "mcp__notion__notion-fetch"],
         permissionMode: "acceptEdits",
         cwd: path,
         resume: sessionId
