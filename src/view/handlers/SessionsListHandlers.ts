@@ -36,7 +36,9 @@ export function attachSessionsListHandlers(
       return
     }
 
-    await onSessionSelected(itemText)
+    // FIXME: temporary fix to remove state from sessionId
+    const sessionId = itemText.replace(/ \[(idle|running|error)]$/, "")
+    await onSessionSelected(sessionId)
     sessionsList.screen.render()
   })
 
