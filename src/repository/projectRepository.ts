@@ -115,6 +115,10 @@ export class ProjectRepository {
     await fs.writeFile(filePath + `/projects/${project.name}.json`, projectJson, "utf8")
   }
 
+  static async delete(projectName: string) {
+    await fs.unlink(filePath + `/projects/${projectName}.json`)
+  }
+
   static async convertSessionToJson(session: ISession) {
     return {
       claudeCodeSessionId: session.claudeCodeSessionId,

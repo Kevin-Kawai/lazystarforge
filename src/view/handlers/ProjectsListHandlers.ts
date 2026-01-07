@@ -3,6 +3,7 @@ import type { Widgets } from "neo-blessed"
 export interface ProjectsListCallbacks {
   onProjectSelected: (projectName: string) => Promise<void>
   onNewProjectRequest: () => void
+  onDeleteProjectRequest: () => void
   sessionsList: Widgets.ListElement
 }
 
@@ -10,7 +11,7 @@ export function attachProjectsListHandlers(
   projectsList: Widgets.ListElement,
   callbacks: ProjectsListCallbacks
 ): void {
-  const { onProjectSelected, onNewProjectRequest, sessionsList } = callbacks
+  const { onProjectSelected, onNewProjectRequest, onDeleteProjectRequest, sessionsList } = callbacks
 
   projectsList.on("select item", async (item, index) => {
     const itemText = item.getText()
@@ -32,5 +33,9 @@ export function attachProjectsListHandlers(
 
   projectsList.key("p", () => {
     onNewProjectRequest()
+  })
+
+  projectsList.key("d", () => {
+    onDeleteProjectRequest()
   })
 }
