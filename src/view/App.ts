@@ -3,6 +3,7 @@ import { ListProjectsUseCase } from "../usecase/listProjectsUseCase.ts"
 import { ListSessionsUseCase } from "../usecase/listSessionsUseCase.ts"
 import { CreateProjectUseCase } from "../usecase/createProjectUseCase.ts"
 import { DeleteSessionUseCase } from "../usecase/deleteSessionUseCase.ts"
+import { DeleteProjectUseCase } from "../usecase/deleteProjectUseCase.ts"
 import { BackgroundJobs } from "../backgroundWorker/sessionJobManager.ts"
 
 // Types
@@ -155,8 +156,7 @@ export async function initializeApp() {
         screen,
         state.selectedProjectName,
         async () => {
-          // Import will be added in Phase 2
-          // await DeleteProjectUseCase.DeleteProject(state.selectedProjectName!)
+          await DeleteProjectUseCase.DeleteProject(state.selectedProjectName!)
           await refreshProjects()
           // Clear selected session since project is gone
           state.selectedSessionId = null
