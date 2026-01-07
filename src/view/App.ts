@@ -19,6 +19,7 @@ import { createInput } from "./components/Input.ts"
 import { createErrorModal } from "./modals/ErrorModal.ts"
 import { openNewSessionModal } from "./modals/NewSessionModal.ts"
 import { openDeleteSessionModal } from "./modals/DeleteSessionModal.ts"
+import { openDeleteProjectModal } from "./modals/DeleteProjectModal.ts"
 import { openNewProjectModal } from "./modals/NewProjectModal.ts"
 
 // Utilities
@@ -85,6 +86,21 @@ export async function initializeApp() {
   })
 
   // Helper functions for handlers
+  const refreshProjects = async () => {
+    const updatedProjects = await ListProjectsUseCase.listProjects()
+    projectsList.setItems(updatedProjects.map(p => p.name))
+
+    // Update selectedProjectName based on the refreshed projects
+    if (updatedProjects.length > 0) {
+      projectsList.select(0)
+      state.selectedProjectName = updatedProjects[0].name
+    } else {
+      state.selectedProjectName = null
+    }
+
+    screen.render()
+  }
+
   const refreshSessions = async () => {
     const updatedSessions = await refreshSessionsForSelectedProject(
       sessionsList,
@@ -131,6 +147,26 @@ export async function initializeApp() {
       }, () => {
         projectsList.focus()
       })
+    },
+    onDeleteProjectRequest: async () => {
+      if (state.selectedProjectName === null) return
+
+      openDeleteProjectModal(
+        screen,
+        state.selectedProjectName,
+        async () => {
+          // Import will be added in Phase 2
+          // await DeleteProjectUseCase.DeleteProject(state.selectedProjectName!)
+          await refreshProjects()
+          // Clear selected session since project is gone
+          state.selectedSessionId = null
+          await refreshSessions()
+          await refreshMessages()
+        },
+        () => {
+          projectsList.focus()
+        }
+      )
     },
     sessionsList
   })
