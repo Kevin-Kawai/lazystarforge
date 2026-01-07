@@ -72,7 +72,7 @@ class SessionJobManager extends EventEmitter {
         const session = new Session(project, createdSessionId)
         session.sendUserMessage(initialMessage)
         session.sendAssistantMessage(event.text)
-        await SessionRepository.save(session)
+        await this.queueSave(session)
 
         project.addSession(session)
         await ProjectRepository.save(project)
@@ -82,9 +82,11 @@ class SessionJobManager extends EventEmitter {
         continue
       }
 
-      const session = await SessionRepository.find(createdSessionId)
+      const session = project.sessions.find(s => s.claudeCodeSessionId === createdSessionId)
+      if (!session) throw new Error("session not found in project")
+
       session.sendAssistantMessage(event.text)
-      await SessionRepository.save(session)
+      await this.queueSave(session)
       this.emitEvent({ type: "session_updated", projectName, sessionId: createdSessionId })
     }
   }
