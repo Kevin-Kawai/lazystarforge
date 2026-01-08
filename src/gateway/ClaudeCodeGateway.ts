@@ -17,7 +17,15 @@ export class ClaudeCodeGateway {
             args: ["-y", "mcp-remote", "https://mcp.notion.com/mcp"]
           }
         },
-        allowedTools: ["Read", "Edit", "Glob", "mcp__notion__notion-search", "mcp__notion__notion-fetch"],
+        allowedTools: [
+          "Read",
+          "Edit",
+          "Glob",
+          "mcp__notion__notion-search",
+          "mcp__notion__notion-fetch",
+          "mcp__notion__notion-create-page",
+          "mcp__notion__notion-update-page"
+        ],
         permissionMode: "acceptEdits",
         cwd: path,
         resume: sessionId
