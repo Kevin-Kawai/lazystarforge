@@ -11,6 +11,9 @@ export function createInput(screen: blessed.Widgets.Screen): blessed.Widgets.Tex
     label: "Input ",
     inputOnFocus: true,
     keys: true,
-    mouse: true
+    mouse: true,
+    style: {
+      focus: { border: { fg: "green" } }
+    }
   })
 }

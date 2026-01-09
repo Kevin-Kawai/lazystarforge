@@ -20,7 +20,10 @@ export function createSessionsList(
     mouse: true,
     vi: true,
     tags: true,
-    style: { selected: { inverse: true } },
+    style: {
+      selected: { inverse: true },
+      focus: { border: { fg: "green" } }
+    },
     items: sessions.length > 0
       ? formatSessionsWithStatus(sessions, statusMap)
       : ["{gray-fg}(no sessions - press 'n' to create){/gray-fg}"]

@@ -15,6 +15,9 @@ export function createTranscript(screen: blessed.Widgets.Screen): blessed.Widget
     keys: true,
     mouse: true,
     vi: true,
-    scrollbar: { ch: " ", style: { inverse: true } }
+    scrollbar: { ch: " ", style: { inverse: true } },
+    style: {
+      focus: { border: { fg: "green" } }
+    }
   })
 }

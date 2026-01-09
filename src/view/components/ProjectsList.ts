@@ -17,7 +17,10 @@ export function createProjectsList(
     mouse: true,
     vi: true,
     tags: true,
-    style: { selected: { inverse: true } },
+    style: {
+      selected: { inverse: true },
+      focus: { border: { fg: "green" } }
+    },
     items: projects.length > 0
       ? projects.map((project) => project.name)
       : ["{gray-fg}(no projects - press 'p' to create){/gray-fg}"]
