@@ -16,8 +16,6 @@ export class SessionRepository {
 
     const tempPath = await this.writeTempExclusive(dir, `${session.claudeCodeSessionId}.tmp`, sessionJson)
     await fs.rename(tempPath, finalPath)
-
-    // await fs.writeFile(filePath + `/sessions/${session.claudeCodeSessionId}.json`, sessionJson, "utf8")
   }
 
   static async find(sessionId: string) {
@@ -66,16 +64,16 @@ export class SessionRepository {
   private static async writeTempExclusive(dir: string, base: string, data: string) {
     for (let attempt = 0; attempt < 50; attempt++) {
       const suffix = `${Date.now()}-${attempt}`
-      const temptPath = path.join(filePath, `/sessions/${sessionId}.json`)
+      const tempPath = path.join(dir, `/${base}.${suffix}.json`)
 
       try {
-        const fh = await fs.open(temptPath, "wx")
+        const fh = await fs.open(tempPath, "wx")
         try {
           await fh.writeFile(data, "utf8")
         } finally {
           await fh.close()
         }
-        return temptPath
+        return tempPath
       } catch (e: any) {
         if (e?.code === "EEXIST") continue
         throw e
