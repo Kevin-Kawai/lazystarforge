@@ -10,7 +10,7 @@ export function createProjectsList(
     top: 1,
     left: 0,
     width: "30%-1",
-    height: "30%",
+    height: "30%-1",
     border: "line",
     label: "Projects ",
     keys: true,

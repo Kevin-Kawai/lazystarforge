@@ -13,7 +13,7 @@ export function createSessionsList(
     top: "30%",
     left: 0,
     width: "30%-1",
-    height: "30%",
+    height: "30%-1",
     border: "line",
     label: "Sessions ",
     keys: true,
