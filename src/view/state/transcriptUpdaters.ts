@@ -2,14 +2,6 @@ import type { Widgets } from "neo-blessed"
 import { ListMessagesUseCase } from "../../usecase/listMessagesUseCase.ts"
 import { formatMessageThread } from "../utils/messageFormatters.ts"
 
-export function setTranscriptContent(
-  transcript: Widgets.BoxElement,
-  content: string
-): void {
-  transcript.setContent(content)
-  transcript.setScrollPerc(100)
-}
-
 export async function refreshMessagesForSelectedSession(
   transcript: Widgets.BoxElement,
   screen: Widgets.Screen,
@@ -17,14 +9,24 @@ export async function refreshMessagesForSelectedSession(
   sessionId: string | null
 ): Promise<void> {
   if (sessionId === null || projectName === null) {
-    transcript.setContent("")
-    transcript.setScrollPerc(100)
+    setTranscriptContentAndScrollBottom(transcript, screen, "")
     return
   }
 
   const messages = await ListMessagesUseCase.listMessages(projectName, sessionId)
   const messageThread = formatMessageThread(messages)
 
-  setTranscriptContent(transcript, messageThread)
+  setTranscriptContentAndScrollBottom(transcript, screen, messageThread)
+}
+
+function setTranscriptContentAndScrollBottom(
+  transcript: Widgets.BoxElement,
+  screen: Widgets.Screen,
+  content: string
+): void {
+  transcript.setContent(content)
+  transcript.setScroll(0)
+  screen.render()
+  transcript.scrollTo(transcript.getScrollHeight())
   screen.render()
 }
