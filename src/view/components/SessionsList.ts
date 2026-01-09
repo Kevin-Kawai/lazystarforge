@@ -1,21 +1,7 @@
 import blessed from "neo-blessed"
 import type { Session } from "../../domain/entities/Session.ts"
 import type { JobStatusMap } from "../types/AppState.ts"
-
-/**
- * Temporary inline formatting function until Phase 2 is complete.
- * This will be replaced with an import from ../utils/sessionFormatters.ts
- */
-function formatSessionsWithStatus(sessions: Session[], statusMap: JobStatusMap): string[] {
-  return sessions.map((session) => {
-    const status = statusMap.get(session.claudeCodeSessionId)
-    const suffix =
-      status === "running" ? " [runnning]" :
-        status === "error" ? " [error]" : " [idle]"
-
-    return `${session.claudeCodeSessionId}${suffix}`
-  })
-}
+import { formatSessionsWithStatus } from "../utils/sessionFormatters.ts"
 
 export function createSessionsList(
   screen: blessed.Widgets.Screen,

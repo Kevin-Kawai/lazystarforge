@@ -28,8 +28,8 @@ import { generateWelcomeContent, generateNoSessionContent, generateNoSessionSele
 import { createRefreshDebouncer } from "./utils/refreshDebouncer.ts"
 
 // State Management
-import { refreshMessagesForSelectedSession, setTranscriptContent } from "./state/transcriptUpdaters.ts"
-import { refreshSessionsForSelectedProject, setSessionListFromSessions } from "./state/sessionListUpdaters.ts"
+import { refreshMessagesForSelectedSession } from "./state/transcriptUpdaters.ts"
+import { refreshSessionsForSelectedProject } from "./state/sessionListUpdaters.ts"
 
 // Event Handlers
 import { attachProjectsListHandlers } from "./handlers/ProjectsListHandlers.ts"
@@ -107,13 +107,14 @@ export async function initializeApp() {
       sessionsList,
       screen,
       state.selectedProjectName,
+      state.selectedSessionId,
       state.statusBySession
     )
 
     // Update selectedSessionId based on the refreshed sessions
-    if (updatedSessions.length > 0) {
+    if (updatedSessions.length === 1) {
       state.selectedSessionId = updatedSessions[0].claudeCodeSessionId
-    } else {
+    } else if (updatedSessions.length === 0) {
       state.selectedSessionId = null
     }
   }
