@@ -8,8 +8,9 @@ export function formatSessionsWithStatus(
   return sessions.map((session) => {
     const status = statusMap.get(session.claudeCodeSessionId)
     const suffix =
-      status === "running" ? " [running]" :
-        status === "error" ? " [error]" : " [idle]"
+      status === "creating" ? " [creating...]" :
+        status === "running" ? " [running]" :
+          status === "error" ? " [error]" : " [idle]"
 
     return `${session.claudeCodeSessionId}${suffix}`
   })

@@ -8,22 +8,39 @@ export function setSessionListFromSessions(
   sessionsList: Widgets.ListElement,
   sessions: Session[],
   statusMap: JobStatusMap,
-  selectedSessionId: string | null
+  selectedSessionId: string | null,
+  placeholderSessionIds: string[] = []
 ): string | null {
-  if (sessions.length === 0) {
+  // Combine real sessions with placeholder sessions
+  const allSessionIds = [
+    ...placeholderSessionIds,
+    ...sessions.map(s => s.claudeCodeSessionId)
+  ]
+
+  if (allSessionIds.length === 0) {
     sessionsList.setItems(["(sessions)"])
     sessionsList.select(0)
     sessionsList.style.fg = "gray" as any
     return null
   }
 
-  const selectedSessionIdx = selectedSessionId ? sessions.map(s => s.claudeCodeSessionId).indexOf(selectedSessionId) : 0
+  // Format all sessions (placeholders will be handled by formatSessionsWithStatus)
+  const formattedItems = allSessionIds.map(id => {
+    const status = statusMap.get(id)
+    const suffix =
+      status === "creating" ? " [creating...]" :
+        status === "running" ? " [running]" :
+          status === "error" ? " [error]" : " [idle]"
+    return `${id}${suffix}`
+  })
+
+  const selectedSessionIdx = selectedSessionId ? allSessionIds.indexOf(selectedSessionId) : 0
   // If the previously selected session doesn't exist in this list, default to the first session
   const validIdx = selectedSessionIdx >= 0 ? selectedSessionIdx : 0
-  sessionsList.setItems(formatSessionsWithStatus(sessions, statusMap))
+  sessionsList.setItems(formattedItems)
   sessionsList.select(validIdx)
   sessionsList.style.fg = undefined as any
-  return sessions[validIdx].claudeCodeSessionId
+  return allSessionIds[validIdx]
 }
 
 export async function refreshSessionsForSelectedProject(
@@ -31,17 +48,18 @@ export async function refreshSessionsForSelectedProject(
   screen: Widgets.Screen,
   projectName: string | null,
   selectedSessionId: string | null,
-  statusMap: JobStatusMap
+  statusMap: JobStatusMap,
+  placeholderSessionIds: string[] = []
 ): Promise<Session[]> {
   if (projectName === null) {
-    setSessionListFromSessions(sessionsList, [], statusMap, null)
+    setSessionListFromSessions(sessionsList, [], statusMap, null, [])
     return []
   }
 
   const allSessions = await ListSessionsUseCase.ListSessions(projectName)
   const filtered = allSessions.filter((s) => s.project.name === projectName)
 
-  setSessionListFromSessions(sessionsList, filtered, statusMap, selectedSessionId)
+  setSessionListFromSessions(sessionsList, filtered, statusMap, selectedSessionId, placeholderSessionIds)
   screen.render()
 
   return filtered

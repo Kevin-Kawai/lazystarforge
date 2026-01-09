@@ -36,8 +36,15 @@ export function attachSessionsListHandlers(
       return
     }
 
+    // Check if this is a placeholder session (creating...)
+    if (itemText.includes("[creating...]")) {
+      // Don't load messages for placeholder sessions
+      await onSessionSelected(null)
+      return
+    }
+
     // FIXME: temporary fix to remove state from sessionId
-    const sessionId = itemText.replace(/ \[(idle|running|error)]$/, "")
+    const sessionId = itemText.replace(/ \[(idle|running|error|creating...)]$/, "")
     await onSessionSelected(sessionId)
     sessionsList.screen.render()
   })

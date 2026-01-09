@@ -47,7 +47,8 @@ export async function initializeApp() {
   const state: AppState = {
     selectedProjectName: projects.length > 0 ? projects[0].name : null,
     selectedSessionId: null,
-    statusBySession: new Map()
+    statusBySession: new Map(),
+    placeholderSessions: new Map()
   }
 
   const sessions = state.selectedProjectName
@@ -103,12 +104,17 @@ export async function initializeApp() {
   }
 
   const refreshSessions = async () => {
+    const placeholders = state.selectedProjectName
+      ? (state.placeholderSessions.get(state.selectedProjectName) || [])
+      : []
+
     const updatedSessions = await refreshSessionsForSelectedProject(
       sessionsList,
       screen,
       state.selectedProjectName,
       state.selectedSessionId,
-      state.statusBySession
+      state.statusBySession,
+      placeholders
     )
 
     // Update selectedSessionId based on the refreshed sessions
@@ -250,7 +256,8 @@ export async function initializeApp() {
     refreshMessages: refreshMessagesDebounced,
     getSelectedProjectName: () => state.selectedProjectName,
     getSelectedSessionId: () => state.selectedSessionId,
-    statusBySession: state.statusBySession
+    statusBySession: state.statusBySession,
+    placeholderSessions: state.placeholderSessions
   })
 
   // Initial focus and data load

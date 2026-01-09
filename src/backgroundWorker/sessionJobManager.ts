@@ -4,12 +4,14 @@ import { ClaudeCodeGateway } from "../gateway/ClaudeCodeGateway.ts";
 import { SessionRepository } from "../repository/sessionRepository.ts";
 import { Session, type ISession } from "../domain/entities/Session.ts";
 
-export type JobStatus = "running" | "idle" | "error"
+export type JobStatus = "running" | "idle" | "error" | "creating"
 
 export type JobEvent =
   | { type: "session_updated"; projectName: string; sessionId: string }
   | { type: "session_status"; projectName: string; sessionId: string; status: JobStatus }
   | { type: "session_changed"; projectName: string }
+  | { type: "session_creating"; projectName: string; tempSessionId: string }
+  | { type: "session_created"; projectName: string; tempSessionId: string; realSessionId: string }
 
 class SessionJobManager extends EventEmitter {
   private running = new Set<string>()
@@ -62,6 +64,11 @@ class SessionJobManager extends EventEmitter {
   private async runCreateSession({ projectName, initialMessage }: { projectName: string; initialMessage: string }) {
     const project = await ProjectRepository.find(projectName)
 
+    // Create a temporary ID and emit an event for the UI to show a placeholder
+    const tempSessionId = `creating-${Date.now()}`
+    this.emitEvent({ type: "session_creating", projectName, tempSessionId } satisfies JobEvent)
+    this.emitEvent({ type: "session_status", projectName, sessionId: tempSessionId, status: "creating" } satisfies JobEvent)
+
     let createdSessionId: string | null = null
     try {
       for await (const event of ClaudeCodeGateway.streamMessage(project.path, initialMessage)) {
@@ -70,6 +77,7 @@ class SessionJobManager extends EventEmitter {
         if (!createdSessionId) {
           createdSessionId = event.sessionId
 
+          // Create the real session with the actual session ID
           const session = new Session(project, createdSessionId)
           session.sendUserMessage(initialMessage)
           session.sendAssistantMessage(event.text)
@@ -78,6 +86,8 @@ class SessionJobManager extends EventEmitter {
           project.addSession(session)
           await ProjectRepository.save(project)
 
+          // Notify UI that placeholder should be replaced with real session
+          this.emitEvent({ type: "session_created", projectName, tempSessionId, realSessionId: createdSessionId } satisfies JobEvent)
           this.emitEvent({ type: "session_changed", projectName })
           this.emitEvent({ type: "session_updated", projectName, sessionId: createdSessionId })
           this.emitEvent({ type: "session_status", projectName, sessionId: createdSessionId, status: "running" } satisfies JobEvent)
@@ -95,10 +105,10 @@ class SessionJobManager extends EventEmitter {
       if (createdSessionId) {
         this.emitEvent({ type: "session_status", projectName, sessionId: createdSessionId, status: "idle" } satisfies JobEvent)
       }
-    } catch {
-      if (createdSessionId) {
-        this.emitEvent({ type: "session_status", projectName, sessionId: createdSessionId, status: "error" } satisfies JobEvent)
-      }
+    } catch (error) {
+      // If we have a real session ID, mark it as error, otherwise mark the placeholder
+      const sessionIdToMark = createdSessionId || tempSessionId
+      this.emitEvent({ type: "session_status", projectName, sessionId: sessionIdToMark, status: "error" } satisfies JobEvent)
     }
   }
 
