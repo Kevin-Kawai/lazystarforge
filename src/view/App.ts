@@ -249,7 +249,9 @@ export async function initializeApp() {
     hasSelectedSession: () => state.selectedSessionId !== null
   })
 
-  attachScreenHandlers(screen)
+  attachScreenHandlers(screen, {
+    getStatusBySession: () => state.statusBySession
+  })
 
   attachBackgroundJobEventHandlers(BackgroundJobs, {
     refreshSessions,

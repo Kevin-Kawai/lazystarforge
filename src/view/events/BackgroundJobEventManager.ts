@@ -39,6 +39,8 @@ export function attachBackgroundJobEventHandlers(
         e.projectName,
         existing.filter(id => id !== e.tempSessionId)
       )
+      // Remove the placeholder's status entry to avoid double-counting
+      statusBySession.delete(e.tempSessionId)
       // Status will be handled by the session_status event
       return
     }
