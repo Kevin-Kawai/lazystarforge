@@ -63,31 +63,42 @@ class SessionJobManager extends EventEmitter {
     const project = await ProjectRepository.find(projectName)
 
     let createdSessionId: string | null = null
-    for await (const event of ClaudeCodeGateway.streamMessage(project.path, initialMessage)) {
-      if (event.type !== "assistant_text") continue
+    try {
+      for await (const event of ClaudeCodeGateway.streamMessage(project.path, initialMessage)) {
+        if (event.type !== "assistant_text") continue
 
-      if (!createdSessionId) {
-        createdSessionId = event.sessionId
+        if (!createdSessionId) {
+          createdSessionId = event.sessionId
 
-        const session = new Session(project, createdSessionId)
-        session.sendUserMessage(initialMessage)
+          const session = new Session(project, createdSessionId)
+          session.sendUserMessage(initialMessage)
+          session.sendAssistantMessage(event.text)
+          await this.queueSave(session)
+
+          project.addSession(session)
+          await ProjectRepository.save(project)
+
+          this.emitEvent({ type: "session_changed", projectName })
+          this.emitEvent({ type: "session_updated", projectName, sessionId: createdSessionId })
+          this.emitEvent({ type: "session_status", projectName, sessionId: createdSessionId, status: "running" } satisfies JobEvent)
+          continue
+        }
+
+        const session = project.sessions.find(s => s.claudeCodeSessionId === createdSessionId)
+        if (!session) throw new Error("session not found in project")
+
         session.sendAssistantMessage(event.text)
         await this.queueSave(session)
-
-        project.addSession(session)
-        await ProjectRepository.save(project)
-
-        this.emitEvent({ type: "session_changed", projectName })
         this.emitEvent({ type: "session_updated", projectName, sessionId: createdSessionId })
-        continue
       }
 
-      const session = project.sessions.find(s => s.claudeCodeSessionId === createdSessionId)
-      if (!session) throw new Error("session not found in project")
-
-      session.sendAssistantMessage(event.text)
-      await this.queueSave(session)
-      this.emitEvent({ type: "session_updated", projectName, sessionId: createdSessionId })
+      if (createdSessionId) {
+        this.emitEvent({ type: "session_status", projectName, sessionId: createdSessionId, status: "idle" } satisfies JobEvent)
+      }
+    } catch {
+      if (createdSessionId) {
+        this.emitEvent({ type: "session_status", projectName, sessionId: createdSessionId, status: "error" } satisfies JobEvent)
+      }
     }
   }
 
