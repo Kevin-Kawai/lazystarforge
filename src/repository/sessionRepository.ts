@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs"
+import path from "node:path"
 import type { ISession } from "../domain/entities/Session.ts";
 import { SessionFactory } from "../factory/sessionFactory.ts";
 import { getDataPath } from "../utils/ensureDataDirectories.ts"
@@ -7,9 +8,14 @@ const filePath = getDataPath()
 
 export class SessionRepository {
   static async save(session: ISession) {
-    await fs.mkdir(filePath + "/sessions", { recursive: true })
+    const dir = path.join(filePath, "sessions")
+    await fs.mkdir(dir, { recursive: true })
+
     const sessionJson = JSON.stringify(await this.convertSessionToJson(session), null, 2)
-    await fs.writeFile(filePath + `/sessions/${session.claudeCodeSessionId}.json`, sessionJson, "utf8")
+    const finalPath = path.join(dir, `${session.claudeCodeSessionId}.json`)
+
+    const tempPath = await this.writeTempExclusive(dir, `${session.claudeCodeSessionId}.tmp`, sessionJson)
+    await fs.rename(tempPath, finalPath)
   }
 
   static async find(sessionId: string) {
@@ -53,5 +59,27 @@ export class SessionRepository {
         content: message.content
       }))
     }
+  }
+
+  private static async writeTempExclusive(dir: string, base: string, data: string) {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const suffix = `${Date.now()}-${attempt}`
+      const tempPath = path.join(dir, `/${base}.${suffix}.json`)
+
+      try {
+        const fh = await fs.open(tempPath, "wx")
+        try {
+          await fh.writeFile(data, "utf8")
+        } finally {
+          await fh.close()
+        }
+        return tempPath
+      } catch (e: any) {
+        if (e?.code === "EEXIST") continue
+        throw e
+      }
+    }
+
+    throw new Error("Failed to allocate unique temp file after retries")
   }
 }
