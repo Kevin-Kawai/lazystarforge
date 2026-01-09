@@ -18,10 +18,12 @@ export function setSessionListFromSessions(
   }
 
   const selectedSessionIdx = selectedSessionId ? sessions.map(s => s.claudeCodeSessionId).indexOf(selectedSessionId) : 0
+  // If the previously selected session doesn't exist in this list, default to the first session
+  const validIdx = selectedSessionIdx >= 0 ? selectedSessionIdx : 0
   sessionsList.setItems(formatSessionsWithStatus(sessions, statusMap))
-  sessionsList.select(selectedSessionIdx)
+  sessionsList.select(validIdx)
   sessionsList.style.fg = undefined as any
-  return sessions[0].claudeCodeSessionId
+  return sessions[validIdx].claudeCodeSessionId
 }
 
 export async function refreshSessionsForSelectedProject(

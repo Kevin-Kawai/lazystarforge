@@ -116,6 +116,15 @@ export async function initializeApp() {
       state.selectedSessionId = updatedSessions[0].claudeCodeSessionId
     } else if (updatedSessions.length === 0) {
       state.selectedSessionId = null
+    } else if (updatedSessions.length > 0) {
+      // When switching projects, ensure we select a valid session
+      const currentIdx = state.selectedSessionId
+        ? updatedSessions.findIndex(s => s.claudeCodeSessionId === state.selectedSessionId)
+        : -1
+      // If the current session doesn't exist in the new project, select the first session
+      if (currentIdx === -1) {
+        state.selectedSessionId = updatedSessions[0].claudeCodeSessionId
+      }
     }
   }
 
