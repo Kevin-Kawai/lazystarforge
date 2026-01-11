@@ -15,6 +15,7 @@ export class ProjectFactory {
       const session = new Session(
         project,
         sessionJson["claudeCodeSessionId"],
+        sessionJson["name"],
         sessionJson["status"],
         sessionJson["messages"]?.map((message: any) => {
           return new Message({ messenger: message["messenger"], content: message["content"] })

@@ -12,6 +12,6 @@ export function formatSessionsWithStatus(
         status === "running" ? " [running]" :
           status === "error" ? " [error]" : " [idle]"
 
-    return `${session.claudeCodeSessionId}${suffix}`
+    return `${session.name}${suffix}`
   })
 }

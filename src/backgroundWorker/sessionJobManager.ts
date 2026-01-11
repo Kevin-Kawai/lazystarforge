@@ -24,7 +24,7 @@ class SessionJobManager extends EventEmitter {
     void this.run(args).finally(() => this.running.delete(key))
   }
 
-  startNewSession(args: { projectName: string; initialMessage: string }) {
+  startNewSession(args: { projectName: string; sessionName: string, initialMessage: string }) {
     const key = `${args.projectName}:__create_sessions__`
     if (this.running.has(key)) return
     this.running.add(key)
@@ -61,7 +61,7 @@ class SessionJobManager extends EventEmitter {
     }
   }
 
-  private async runCreateSession({ projectName, initialMessage }: { projectName: string; initialMessage: string }) {
+  private async runCreateSession({ projectName, sessionName, initialMessage }: { projectName: string; sessionName: string; initialMessage: string }) {
     const project = await ProjectRepository.find(projectName)
 
     // Create a temporary ID and emit an event for the UI to show a placeholder
@@ -78,7 +78,7 @@ class SessionJobManager extends EventEmitter {
           createdSessionId = event.sessionId
 
           // Create the real session with the actual session ID
-          const session = new Session(project, createdSessionId)
+          const session = new Session(project, createdSessionId, sessionName)
           session.sendUserMessage(initialMessage)
           session.sendAssistantMessage(event.text)
           await this.queueSave(session)
