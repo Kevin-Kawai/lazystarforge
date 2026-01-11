@@ -1,8 +1,11 @@
 import type { Widgets } from "neo-blessed"
+import type { ISession } from "../../domain/entities/Session.ts"
+import { ProjectRepository } from "../../repository/projectRepository.ts"
 
 export interface SessionsListCallbacks {
   onSessionSelected: (sessionId: string | null) => Promise<void>
   onNewSessionRequest: () => void
+  onRenameSessionRequest: () => void
   onDeleteSessionRequest: () => void
   projectsList: Widgets.ListElement
   transcript: Widgets.BoxElement
@@ -15,6 +18,7 @@ export function attachSessionsListHandlers(
   const {
     onSessionSelected,
     onNewSessionRequest,
+    onRenameSessionRequest,
     onDeleteSessionRequest,
     projectsList,
     transcript
@@ -44,13 +48,18 @@ export function attachSessionsListHandlers(
     }
 
     // FIXME: temporary fix to remove state from sessionId
-    const sessionId = itemText.replace(/ \[(idle|running|error|creating...)]$/, "")
-    await onSessionSelected(sessionId)
+    const sessionName = itemText.replace(/ \[(idle|running|error|creating...)]$/, "")
+
+    await onSessionSelected(sessionName)
     sessionsList.screen.render()
   })
 
   sessionsList.key("n", () => {
     onNewSessionRequest()
+  })
+
+  sessionsList.key("r", () => {
+    onRenameSessionRequest()
   })
 
   sessionsList.key("d", () => {

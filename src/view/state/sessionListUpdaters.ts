@@ -24,16 +24,7 @@ export function setSessionListFromSessions(
     return null
   }
 
-  // Format all sessions (placeholders will be handled by formatSessionsWithStatus)
-  const formattedItems = allSessionIds.map(id => {
-    const status = statusMap.get(id)
-    const suffix =
-      status === "creating" ? " [creating...]" :
-        status === "running" ? " [running]" :
-          status === "error" ? " [error]" : " [idle]"
-    return `${id}${suffix}`
-  })
-
+  const formattedItems = formatSessionsWithStatus(sessions, statusMap)
   const selectedSessionIdx = selectedSessionId ? allSessionIds.indexOf(selectedSessionId) : 0
   // If the previously selected session doesn't exist in this list, default to the first session
   const validIdx = selectedSessionIdx >= 0 ? selectedSessionIdx : 0

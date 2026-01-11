@@ -11,8 +11,10 @@ export interface ISession {
   project: IProject,
   messages: IMessage[],
   claudeCodeSessionId: string,
+  name: string,
   sendUserMessage(content: string): void,
   sendAssistantMessage(message: string): void,
+  renameSession(newName: string): void
 }
 
 export class Session implements ISession {
@@ -20,12 +22,14 @@ export class Session implements ISession {
   project: IProject
   messages: IMessage[]
   claudeCodeSessionId: string;
+  name: string;
 
-  constructor(project: IProject, claudeCodeSessionId: string, status: ESessionStatus = ESessionStatus.IDLE, messages: IMessage[] = []) {
+  constructor(project: IProject, claudeCodeSessionId: string, name: string, status: ESessionStatus = ESessionStatus.IDLE, messages: IMessage[] = []) {
     this.status = status
     this.project = project
     this.claudeCodeSessionId = claudeCodeSessionId
     this.messages = messages
+    this.name = name
   }
 
   sendUserMessage(content: string): void {
@@ -38,6 +42,10 @@ export class Session implements ISession {
     const messenger = EMessenger.SYSTEM
     const message = new Message({ messenger, content })
     this.messages.push(message)
+  }
+
+  renameSession(newName: string): void {
+    this.name = newName
   }
 }
 

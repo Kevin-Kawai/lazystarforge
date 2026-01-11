@@ -38,6 +38,9 @@ import { attachTranscriptHandlers } from "./handlers/TranscriptHandlers.ts"
 import { attachInputHandlers } from "./handlers/InputHandlers.ts"
 import { attachScreenHandlers } from "./handlers/ScreenHandlers.ts"
 import { attachBackgroundJobEventHandlers } from "./events/BackgroundJobEventManager.ts"
+import { openRenameSessionModal } from "./modals/RenameSessionModal.ts"
+import { RenameSessionUseCase } from "../usecase/renameSessionUseCase.ts"
+import { ProjectRepository } from "../repository/projectRepository.ts"
 
 export async function initializeApp() {
   // Load initial data
@@ -187,11 +190,27 @@ export async function initializeApp() {
     sessionsList
   })
 
+  const renameSession = async (newName: string, sessionId: string) => {
+    await RenameSessionUseCase.renameSession(newName, sessionId)
+    await refreshSessions()
+  }
+
+  const handleSessionSelection = async (sessionName: string | null) => {
+    if (!state.selectedProjectName) return
+
+    if (sessionName === null) {
+      state.selectedSessionId = null
+    }
+
+    const project = await ProjectRepository.find(state.selectedProjectName)
+    const session = project.sessions.find((s) => s.name === sessionName)
+    if (!session) return
+    state.selectedSessionId = session.claudeCodeSessionId
+    await refreshMessages()
+  }
+
   attachSessionsListHandlers(sessionsList, {
-    onSessionSelected: async (sessionId) => {
-      state.selectedSessionId = sessionId
-      await refreshMessages()
-    },
+    onSessionSelected: async (sessionName) => await handleSessionSelection(sessionName),
     onNewSessionRequest: () => {
       if (state.selectedProjectName === null) {
         createErrorModal(screen, "Please create a project first (press 'p')", () => {
@@ -200,14 +219,30 @@ export async function initializeApp() {
         return
       }
 
-      openNewSessionModal(screen, state.selectedProjectName, (message) => {
+      openNewSessionModal(screen, state.selectedProjectName, (newSessionName, message) => {
         BackgroundJobs.startNewSession({
           projectName: state.selectedProjectName!,
+          sessionName: newSessionName,
           initialMessage: message
         })
       }, () => {
         sessionsList.focus()
       })
+    },
+    onRenameSessionRequest: async () => {
+      if (state.selectedSessionId === null || state.selectedProjectName === null) return
+
+      const project = await ProjectRepository.find(state.selectedProjectName)
+      const selectedSession = project.sessions.find((s) => s.claudeCodeSessionId === state.selectedSessionId)
+
+      if (!selectedSession) return
+
+      openRenameSessionModal(
+        screen,
+        selectedSession.claudeCodeSessionId,
+        renameSession,
+        () => sessionsList.focus()
+      )
     },
     onDeleteSessionRequest: async () => {
       if (state.selectedSessionId === null) return

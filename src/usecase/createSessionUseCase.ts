@@ -3,7 +3,7 @@ import { ProjectRepository } from "../repository/projectRepository.ts";
 import { SessionRepository } from "../repository/sessionRepository.ts";
 
 export class CreateSessionUseCase {
-  static async createSession(projectName: string, userMessage: string) {
+  static async createSession(projectName: string, sessionName: string, userMessage: string) {
     const project = await ProjectRepository.find(projectName)
 
     let initialMessage = true
@@ -12,7 +12,7 @@ export class CreateSessionUseCase {
       if (event.type === "assistant_text") {
         if (initialMessage) {
           claudeCodeSessionId = event.sessionId
-          project.startSession(claudeCodeSessionId, userMessage)
+          project.startSession(claudeCodeSessionId, sessionName, userMessage)
           initialMessage = false
         }
 
